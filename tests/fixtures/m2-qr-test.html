@@ -5,12 +5,13 @@
     <title>XAuthZee M2 手动验证</title>
     <style>
       :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        max-width: 760px;
-        margin: 32px auto;
-        padding: 0 24px;
-        line-height: 1.6;
+        max-width: 880px;
+        margin: 16px auto;
+        padding: 0 16px;
+        line-height: 1.5;
         color: #1b1d21;
         background: #fff;
       }
@@ -21,75 +22,73 @@
         .qr-cell { background: #fff; }
         .blank { background: #f6f7f9; }
       }
-      h1 { font-size: 20px; margin: 0 0 8px; }
-      h2 { font-size: 15px; margin: 24px 0 8px; }
-      .hint { color: #6b7280; font-size: 13px; margin: 0 0 16px; }
+      h1 { font-size: 18px; margin: 0 0 6px; }
+      h2 { font-size: 14px; margin: 16px 0 6px; }
+      .hint { color: #6b7280; font-size: 12.5px; margin: 0 0 12px; }
+
+      /* QR 永远在视口顶部，最大 240px（与 PNG 原生尺寸一致）。
+         image-rendering: pixelated 强制最近邻缩放，避免浏览器在
+         110% / 130% / 150% 这类非整数缩放下用插值把黑白模块弄模糊，
+         否则 jsQR 可能在边缘像素上识别失败。 */
       .qr-grid {
         display: flex;
         flex-wrap: wrap;
-        gap: 24px;
-        margin-bottom: 16px;
+        gap: 16px;
+        margin: 8px 0 16px;
       }
       .qr-cell {
-        padding: 12px;
+        padding: 8px;
         background: #fff;
         border: 1px solid #e4e6ea;
-        border-radius: 8px;
+        border-radius: 6px;
       }
-      .qr-cell img { display: block; width: 200px; height: 200px; }
+      .qr-cell img {
+        display: block;
+        width: 240px;
+        height: 240px;
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+      }
       .label {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 11px;
-        margin-top: 8px;
+        font-size: 10.5px;
+        margin-top: 6px;
         color: #6b7280;
         word-break: break-all;
-        max-width: 200px;
+        max-width: 240px;
       }
       code {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         background: #f6f7f9;
-        padding: 1px 6px;
-        border-radius: 4px;
-        font-size: 12.5px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 12px;
       }
       .note {
         background: #eef2ff;
         border-left: 3px solid #4f46e5;
-        padding: 12px 16px;
+        padding: 10px 14px;
         border-radius: 4px;
-        margin: 16px 0;
-        font-size: 13px;
+        margin: 12px 0;
+        font-size: 12.5px;
       }
       .blank {
         background: #f6f7f9;
-        padding: 16px;
-        border-radius: 8px;
-        font-size: 18px;
-        margin-bottom: 16px;
+        padding: 14px;
+        border-radius: 6px;
+        font-size: 16px;
+        margin-bottom: 12px;
       }
-      ol { padding-left: 22px; }
-      li { margin: 6px 0; }
     </style>
   </head>
   <body>
-    <h1>XAuthZee M2 手动验证页</h1>
+    <h1>XAuthZee M2 手动验证</h1>
     <p class="hint">
-      模拟「打开 GitHub / Google / Microsoft 2FA 配置页」的视觉效果。
-      点扩展图标 →「扫描二维码」→ popup 应显示下方对应的 otpauth:// URI。
+      QR 永远在视口顶部，三个不同服务商参数。点扩展图标 → 扫描二维码。
     </p>
 
-    <div class="note">
-      <strong>验证项</strong>
-      <ol>
-        <li>弹出后立刻关 popup：到 chrome://extensions → Service Worker 控制台，应看到 <code>[XAuthZee] scan: captured WIDTH x HEIGHT</code>，证明 captureVisibleTab 在 popup 关闭后仍成功。</li>
-        <li>分别在 100% / 125% / 150% / 200% 页面缩放下扫描同一张图：解码文本应一致。</li>
-        <li>故意把页面缩到 Retina 屏 + 150% 缩放：仍能正确解码。</li>
-        <li>扫页面下方的纯文字干扰项：popup 应显示「没找到二维码」。</li>
-      </ol>
-    </div>
-
-    <h2>三个不同服务商、不同参数</h2>
-    <p class="hint">SHA1/6 位、SHA256/8 位、SHA1/6 位 — 覆盖典型 2FA 参数组合。</p>
+    <!-- QR 必须放在最前面，确保 100% / 125% / 150% 任何缩放下都在视口内。
+         captureVisibleTab 抓不到视口外的内容，所以这不是装饰，是硬要求。 -->
     <div class="qr-grid">
       <div class="qr-cell">
         <img src="./m2-qr-images/1-github.png" alt="GitHub" />
@@ -103,6 +102,15 @@
         <img src="./m2-qr-images/3-microsoft.png" alt="Microsoft" />
         <div class="label">otpauth://totp/Microsoft:rex@outlook.com?secret=MFRGGZDFMZTWQ2LKOBQW4IDPMFZGCZDDNZSG4&issuer=Microsoft</div>
       </div>
+    </div>
+
+    <div class="note">
+      <strong>验证项</strong>
+      <ol style="padding-left: 22px; margin: 4px 0 0;">
+        <li>popup 应显示对应 QR 的 otpauth:// 字符串</li>
+        <li>分别在 100% / 110% / 125% / 150% 页面缩放下重试，应都能解</li>
+        <li>关键验证：点扫描后立刻关 popup，去 chrome://extensions → Service Worker 控制台，应看到 <code>[XAuthZee] scan: captured WIDTH x HEIGHT</code></li>
+      </ol>
     </div>
 
     <h2>反例：纯文字（应返回「没找到二维码」）</h2>
