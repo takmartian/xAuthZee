@@ -1,0 +1,61 @@
+/*
+ * 设计 token。popup、设置页、以及注入页面的浮层三处共用。
+ *
+ * 注意全部使用 px 而非 rem：注入到宿主页面的浮层活在 Shadow DOM 里，
+ * rem 会继承宿主页 html 的 font-size（不少站点设成 62.5% 即 10px），
+ * 导致同一套样式在不同网站上尺寸乱掉。px 不受影响。
+ *
+ * 同时挂在 :root 和 :host 上，这样 Shadow DOM 内部也能取到这些变量
+ * —— 自定义属性虽然可继承，但 shadow host 之外的 :root 定义在
+ * 启用了样式隔离（all: initial）的情况下并不可靠。
+ */
+:root,
+:host {
+  --xz-font:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', Roboto, sans-serif;
+  --xz-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --xz-bg: #ffffff;
+  --xz-bg-subtle: #f6f7f9;
+  --xz-border: #e4e6ea;
+  --xz-text: #1b1d21;
+  --xz-text-dim: #6b7280;
+  --xz-accent: #4f46e5;
+  --xz-accent-weak: #eef2ff;
+  --xz-danger: #dc2626;
+  --xz-warn: #d97706;
+
+  --xz-radius: 10px;
+  --xz-radius-sm: 6px;
+  --xz-shadow: 0 4px 16px rgba(15, 18, 25, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root,
+  :host {
+    --xz-bg: #1c1e23;
+    --xz-bg-subtle: #24272e;
+    --xz-border: #34383f;
+    --xz-text: #edeef1;
+    --xz-text-dim: #9aa1ad;
+    --xz-accent: #818cf8;
+    --xz-accent-weak: #2a2c48;
+    --xz-danger: #f87171;
+    --xz-warn: #fbbf24;
+
+    --xz-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--xz-font);
+  color: var(--xz-text);
+  background: var(--xz-bg);
+  -webkit-font-smoothing: antialiased;
+}

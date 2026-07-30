@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>XAuthZee 测试页</title>
+    <style>
+      body {
+        font:
+          14px/1.6 -apple-system,
+          sans-serif;
+        max-width: 640px;
+        margin: 48px auto;
+        padding: 0 20px;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      li {
+        margin: 8px 0;
+      }
+      code {
+        background: #f1f2f4;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      p.note {
+        color: #666;
+        font-size: 13px;
+        border-left: 3px solid #ddd;
+        padding-left: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>XAuthZee 本地测试页</h1>
+
+    <p class="note">
+      必须通过 http 访问（<code>python3 -m http.server</code>），不能用
+      <code>file://</code> —— 扩展默认没有 file 协议的访问权限，内容脚本不会注入。
+    </p>
+
+    <h2>M1 样式隔离</h2>
+    <p class="note">
+      每个页面都用 <code>#xz-probe</code> 打开，右上角应浮出样式探针。
+      三个页面里探针的外观必须完全一致。
+    </p>
+    <ul>
+      <li><a href="./hostile-reset.html#xz-probe">全局 reset 页</a> — <code>* { all: unset }</code></li>
+      <li><a href="./hostile-rem.html#xz-probe">rem 基准被改页</a> — <code>html { font-size: 62.5% }</code></li>
+      <li><a href="./hostile-layers.html#xz-probe">层级与 transform 页</a> — 祖先 transform 会改变 fixed 的包含块</li>
+    </ul>
+
+    <h2>M7 输入框识别与填充</h2>
+    <ul>
+      <li><a href="./otp-fields.html">OTP 输入框变体页</a>（M7 里补齐）</li>
+    </ul>
+  </body>
+</html>

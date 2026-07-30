@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>敌对样式：全局 reset</title>
+    <style>
+      /*
+       * 最暴力的一类：把所有元素的继承样式全部抹掉。
+       * 如果 Shadow DOM 隔离不生效，探针会被 all: unset 剥成裸文本。
+       */
+      * {
+        all: unset;
+        display: revert;
+        box-sizing: content-box !important;
+      }
+      body {
+        font-family: cursive;
+        color: crimson;
+        background: #fffbe6;
+        padding: 40px;
+      }
+      div,
+      p,
+      span {
+        border: 1px dotted #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <p>这一页把 <code>* { all: unset }</code> 和 <code>box-sizing: content-box !important</code> 加在了所有元素上，正文字体是 cursive、颜色是 crimson。</p>
+    <p>右上角的探针不应受到任何影响：字体为系统 UI 字体、文字为常规深色、色块为 40×12px。</p>
+    <p style="height: 1200px">（留白用于测试滚动）</p>
+  </body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "extName": {
+    "message": "小验子",
+    "description": "Extension name shown in the browser and store listing"
+  },
+  "extDescription": {
+    "message": "浏览器里的动态验证码工具。在页面上框选二维码即可添加，点一下就能把验证码填进输入框。",
+    "description": "Extension description shown in the store listing"
+  },
+  "popupEmpty": {
+    "message": "还没有验证码"
+  },
+  "popupEmptyHint": {
+    "message": "可以在页面上框选二维码添加，也可以直接输入密钥。"
+  },
+  "actionScanQr": {
+    "message": "扫描二维码"
+  },
+  "actionManualAdd": {
+    "message": "输入密钥"
+  },
+  "actionSettings": {
+    "message": "设置"
+  },
+  "optionsTitle": {
+    "message": "小验子设置"
+  }
+}

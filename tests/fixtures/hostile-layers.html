@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>敌对样式：层级与 transform</title>
+    <style>
+      /*
+       * 这一页测两件事：
+       *
+       * 1. 页面自己有一个 z-index 拉满的吸顶条。我们刻意用 2147483000，
+       *    比它低，所以被盖住是预期行为——不能无条件盖在所有东西上面，
+       *    否则会挡住网站自己的关键弹窗。
+       *
+       * 2. body 上有 transform。这会让 body 成为 position: fixed 的包含块，
+       *    fixed 不再相对视口定位。WXT 的 shadow host 就挂在 body 下，
+       *    所以这是真实存在的陷阱，必须实测。
+       */
+      body {
+        transform: translateZ(0);
+        margin: 0;
+        font-family: system-ui, sans-serif;
+      }
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 2147483647;
+        background: #111;
+        color: #fff;
+        padding: 14px 20px;
+        font-weight: 600;
+      }
+      .content {
+        padding: 24px;
+        height: 1600px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">z-index: 2147483647 的吸顶条（探针应被它盖住，这是预期）</div>
+    <div class="content">
+      <p><code>body</code> 上有 <code>transform: translateZ(0)</code>，会成为 fixed 定位的包含块。</p>
+      <p>向下滚动，观察探针是否仍固定在视口右上角。如果它跟着页面一起滚走，说明 fixed 定位在这种页面上不可靠，浮层需要改用别的定位方案。</p>
+    </div>
+  </body>
+</html>

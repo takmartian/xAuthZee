@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>定位陷阱合集</title>
+    <style>
+      /*
+       * 会把自身变成 position: fixed 包含块的属性，实际站点里都很常见：
+       *   transform / translateZ(0)  —— GPU 合成层的老写法、动画库
+       *   filter                     —— 毛玻璃、置灰遮罩
+       *   will-change: transform     —— 滚动性能优化
+       *   contain: paint             —— 现代性能隔离
+       *   backdrop-filter            —— 毛玻璃弹层
+       * 只要浮层的 DOM 祖先链上出现任意一个，fixed 就不再相对视口。
+       */
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        transform: translateZ(0);
+      }
+      .content {
+        padding: 24px;
+        height: 2000px;
+      }
+      code {
+        background: #eee;
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="content">
+      <h1>定位策略对照测试</h1>
+      <p><code>body</code> 上有 <code>transform: translateZ(0)</code>。</p>
+      <p>由 tests/positioning-strategy.mjs 驱动，逐一挂载各种定位策略并滚动测量。</p>
+    </div>
+  </body>
+</html>

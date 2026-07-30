@@ -1,0 +1,111 @@
+.root {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--xz-border);
+}
+
+.logo {
+  border-radius: 5px;
+  display: block;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  flex: 1;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--xz-radius-sm);
+  background: transparent;
+  color: var(--xz-text-dim);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--xz-bg-subtle);
+  color: var(--xz-text);
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.emptyHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--xz-text-dim);
+}
+
+.footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--xz-border);
+}
+
+.primary,
+.secondary {
+  flex: 1;
+  height: 32px;
+  border-radius: var(--xz-radius-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    opacity 0.12s;
+}
+
+.primary {
+  border: 1px solid transparent;
+  background: var(--xz-accent);
+  color: #fff;
+}
+
+.secondary {
+  border: 1px solid var(--xz-border);
+  background: transparent;
+  color: var(--xz-text);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--xz-bg-subtle);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

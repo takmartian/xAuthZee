@@ -1,0 +1,28 @@
+{
+  "extName": {
+    "message": "XAuthZee",
+    "description": "Extension name shown in the browser and store listing"
+  },
+  "extDescription": {
+    "message": "A TOTP authenticator that lives in your browser. Scan a QR code from any page, then fill your one-time codes with a single click.",
+    "description": "Extension description shown in the store listing"
+  },
+  "popupEmpty": {
+    "message": "No accounts yet"
+  },
+  "popupEmptyHint": {
+    "message": "Add one by scanning a QR code on the page, or by entering a secret manually."
+  },
+  "actionScanQr": {
+    "message": "Scan QR code"
+  },
+  "actionManualAdd": {
+    "message": "Enter secret"
+  },
+  "actionSettings": {
+    "message": "Settings"
+  },
+  "optionsTitle": {
+    "message": "XAuthZee settings"
+  }
+}

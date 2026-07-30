@@ -1,0 +1,92 @@
+/*
+ * 内容脚本浮层样式。
+ *
+ * 这里刻意不用 CSS Modules：类名哈希的价值在于避免全局作用域冲突，
+ * 而 Shadow DOM 边界已经把这件事解决了。在 shadow root 里再哈希一遍，
+ * 只会让调试和自动化断言变难（测试脚本无法引用稳定的类名），
+ * 对审核人员的可读性也更差。popup 与设置页是普通页面，仍用 CSS Modules。
+ *
+ * 另外全部使用 px 而非 rem：WXT 会在 :host 上加 all: initial，可继承属性
+ * 已被拦截，但 rem 参照的是宿主页 <html> 的 font-size，不受 all: initial
+ * 影响。html { font-size: 62.5% } 这种写法很常见，用 rem 会整体缩到六成。
+ */
+
+.xz-panel {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  /* 刻意低于 2147483647：页面自己的最高层弹窗仍应能盖住我们 */
+  z-index: 2147483000;
+
+  width: 300px;
+  padding: 10px;
+  border: 1px solid var(--xz-border);
+  border-radius: var(--xz-radius);
+  background: var(--xz-bg);
+  box-shadow: var(--xz-shadow);
+  color: var(--xz-text);
+  font-family: var(--xz-font);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+}
+
+.xz-header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--xz-text-dim);
+  margin-bottom: 8px;
+}
+
+.xz-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--xz-radius-sm);
+}
+
+.xz-row:hover {
+  background: var(--xz-accent-weak);
+}
+
+.xz-issuer {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.xz-code {
+  font-family: var(--xz-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  color: var(--xz-accent);
+}
+
+.xz-checks {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--xz-border);
+  font-size: 11px;
+  color: var(--xz-text-dim);
+}
+
+.xz-checks p {
+  margin: 0 0 4px;
+}
+
+.xz-swatch {
+  display: block;
+  width: 40px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--xz-accent);
+}

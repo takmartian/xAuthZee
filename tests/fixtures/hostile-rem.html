@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>敌对样式：rem 基准被改</title>
+    <style>
+      /*
+       * 「html { font-size: 62.5% }」是流传极广的写法（为了让 1rem = 10px）。
+       * 如果浮层样式里用了 rem，在这一页会整体缩到六成大小。
+       * 这正是 theme.css 里坚持只用 px 的原因。
+       */
+      html {
+        font-size: 62.5%;
+      }
+      body {
+        font-size: 2.4rem;
+        line-height: 3;
+        letter-spacing: 3px;
+        text-align: center;
+        font-family: Georgia, serif;
+        padding: 4rem;
+      }
+    </style>
+  </head>
+  <body>
+    <p>本页 html 的 font-size 被设为 62.5%（即 10px），正文 2.4rem、行高 3、字间距 3px、居中、衬线字体。</p>
+    <p>探针里的文字必须仍是 13px、左对齐、常规行高。</p>
+    <p style="height: 1200px">（留白用于测试滚动）</p>
+  </body>
+</html>

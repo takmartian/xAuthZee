@@ -1,0 +1,10 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    // @wxt-dev/module-react 只配置了 Vite 侧的 JSX 转换，
+    // 生成的 .wxt/tsconfig.json 里没有 jsx，需要在这里补上
+    "jsx": "react-jsx",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}
