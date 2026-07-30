@@ -91,7 +91,7 @@ export default function App() {
   );
 
   const handleScan = useCallback(async () => {
-    setScanStatus({ kind: 'working', phase: '截屏并解码…' });
+    setScanStatus({ kind: 'working', phase: '框选二维码…' });
     try {
       const tabs = await browser.tabs.query({ active: true, lastFocusedWindow: true });
       const tab = tabs[0];
@@ -103,15 +103,11 @@ export default function App() {
         tabId: tab.id,
         windowId: tab.windowId,
       });
-      const r = res as ScanResult | undefined;
-      if (!r) throw new Error('后台无响应');
-      if (r.error) throw new Error(r.error);
-      const text = r.text;
-      if (!text) throw new Error('没找到二维码');
-      // QR 解出来了 — M5 会把这段接成产品化的确认卡片，
-      // 这里先直接入库（M4 验证链路用）
-      const parsed = await import('@/lib/totp').then((m) => m.parseOtpauthUri(text));
-      await vault.add(parsed);
+      const r = res as { ok?: boolean; error?: string } | undefined;
+      if (!r?.ok) throw new Error(r?.error ?? '后台无响应');
+      // 注入成功 —— 后续流程由 qrselect.content 自己驱动：
+      //   拖拽 → 截屏 → 解码 → 确认卡片 → 入库
+      // popup 这里只需要等用户关掉浮层。给一个短暂的"已就绪"提示即可。
       setScanStatus({ kind: 'done' });
     } catch (err) {
       setScanStatus({
@@ -119,7 +115,6 @@ export default function App() {
         message: err instanceof Error ? err.message : String(err),
       });
     } finally {
-      // 1.5 秒后把扫描状态清掉，恢复按钮
       window.setTimeout(() => setScanStatus({ kind: 'idle' }), 1500);
     }
   }, []);
@@ -265,11 +260,4 @@ interface ScanStatus {
   kind: 'idle' | 'working' | 'done' | 'error';
   phase?: string;
   message?: string;
-}
-
-interface ScanResult {
-  text: string | null;
-  captureWidth?: number;
-  captureHeight?: number;
-  error?: string;
 }

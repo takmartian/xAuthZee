@@ -28,6 +28,7 @@ import {
 } from '../lib/qr/scale.ts';
 import { extractRegion } from '../lib/qr/region.ts';
 import { decodeImageData, decodeRegion } from '../lib/qr/decode.ts';
+import { normalizeDragRect, prepareSelection } from '../lib/qr/select.ts';
 
 /** 用 qrcode 库生成一个已知的二维码位图（黑=1，白=0） */
 function renderQrMatrix(text: string, scale: number): {
@@ -348,5 +349,68 @@ describe('真实 2FA QR fixture', () => {
       decodeRegion(img, captureRect),
       'otpauth://totp/GitHub:rex@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub',
     );
+  });
+});
+
+// ---------------------------------------- 用户拖拽矩形的归一化与校验
+
+describe('normalizeDragRect', () => {
+  test('起点在终点左上：原样', () => {
+    assert.deepEqual(
+      normalizeDragRect({ x: 10, y: 10 }, { x: 100, y: 80 }),
+      { x: 10, y: 10, w: 90, h: 70 },
+    );
+  });
+
+  test('起点在终点右下：自动交换', () => {
+    assert.deepEqual(
+      normalizeDragRect({ x: 100, y: 80 }, { x: 10, y: 10 }),
+      { x: 10, y: 10, w: 90, h: 70 },
+    );
+  });
+
+  test('横向反向，纵向同向', () => {
+    assert.deepEqual(
+      normalizeDragRect({ x: 200, y: 50 }, { x: 50, y: 200 }),
+      { x: 50, y: 50, w: 150, h: 150 },
+    );
+  });
+
+  test('起点终点相同：零尺寸', () => {
+    assert.deepEqual(normalizeDragRect({ x: 50, y: 50 }, { x: 50, y: 50 }), {
+      x: 50,
+      y: 50,
+      w: 0,
+      h: 0,
+    });
+  });
+});
+
+describe('prepareSelection', () => {
+  const viewport = { width: 1280, height: 800 };
+
+  test('正常选区：原样返回', () => {
+    const r = prepareSelection({ x: 100, y: 100, w: 200, h: 200 }, viewport);
+    assert.deepEqual(r, { rect: { x: 100, y: 100, w: 200, h: 200 } });
+  });
+
+  test('右下越界：裁剪到视口内', () => {
+    const r = prepareSelection({ x: 1100, y: 600, w: 500, h: 500 }, viewport);
+    assert.deepEqual(r, { rect: { x: 1100, y: 600, w: 180, h: 200 } });
+  });
+
+  test('起点超出左上角：原点对齐', () => {
+    const r = prepareSelection({ x: -50, y: -30, w: 200, h: 200 }, viewport);
+    assert.deepEqual(r, { rect: { x: 0, y: 0, w: 150, h: 170 } });
+  });
+
+  test('选区过小：返回 too_small 错误', () => {
+    const r = prepareSelection({ x: 100, y: 100, w: 30, h: 200 }, viewport);
+    assert.deepEqual(r, { error: 'selection_too_small' });
+  });
+
+  test('完全在视口外：返回 outside 错误', () => {
+    const r = prepareSelection({ x: 1300, y: 100, w: 100, h: 100 }, viewport);
+    assert.deepEqual(r, { error: 'selection_outside' });
   });
 });

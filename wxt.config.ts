@@ -26,5 +26,9 @@ export default defineConfig({
     action: {
       default_title: '__MSG_extName__',
     },
+
+    // otpfill.css 由 WXT 自动加进 web_accessible_resources（来自
+    // cssInjectionMode: 'ui'）。qrselect.css 通过 Vite ?inline 直接
+    // 打成字符串进 JS bundle，不需要 web_accessible。
   },
 });

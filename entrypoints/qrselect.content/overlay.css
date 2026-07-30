@@ -1,0 +1,306 @@
+/*
+ * qrselect 内容脚本的浮层样式。
+ *
+ * 严格 px（不 rem）—— 已经在 Shadow DOM 里挂 :host all: initial，
+ * rem 会拿到宿主页 html 的 font-size，这里要保证尺寸稳定。
+ *
+ * 命名用 xz- 前缀，不走 CSS Modules —— Shadow DOM 边界已经把
+ * 全局命名空间隔离开了，再哈希一遍只会让开发和调试更绕。
+ */
+
+:host {
+  all: initial !important;
+}
+
+.xz-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  cursor: crosshair;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', Roboto, sans-serif;
+  color: #fff;
+}
+
+.xz-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.xz-mask.xz-cutout {
+  /* 选区挖空：用 box-shadow 把 mask 推到四周，中间透明。
+     选区矩形由 .xz-selection 定位，自身透明，靠外阴影透出。
+     这种实现不需要 SVG / clip-path，浏览器兼容最好。 */
+  background: transparent;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+
+.xz-hint {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 12.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.xz-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 2px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  font-family: inherit;
+  font-size: 11.5px;
+}
+
+.xz-selection {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+}
+
+.xz-selection.xz-active {
+  display: block;
+}
+
+.xz-selection-border {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid #fff;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 0 0 9999px rgba(0, 0, 0, 0.001); /* 让阴影参与事件但不真的渲染 */
+}
+
+.xz-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
+}
+
+.xz-handle.xz-tl { top: -5px; left: -5px; }
+.xz-handle.xz-tr { top: -5px; right: -5px; }
+.xz-handle.xz-bl { bottom: -5px; left: -5px; }
+.xz-handle.xz-br { bottom: -5px; right: -5px; }
+
+.xz-size-label {
+  position: absolute;
+  left: 0;
+  top: -22px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ============================================================ 卡片 */
+
+.xz-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 340px;
+  max-width: calc(100% - 32px);
+  padding: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #1b1d21;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.xz-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e4e6ea;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.xz-card-header.xz-error {
+  color: #dc2626;
+  border-bottom-color: rgba(220, 38, 38, 0.2);
+}
+
+.xz-card-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+}
+
+.xz-card-header.xz-error .xz-card-icon {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
+.xz-card-body {
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.xz-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+}
+
+.xz-card-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.xz-card-field-value {
+  font-size: 13.5px;
+  color: #1b1d21;
+  word-break: break-word;
+}
+
+.xz-card-field-value.xz-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+.xz-card-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e4e6ea;
+  background: #fafbfc;
+}
+
+.xz-card-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid #d4d6da;
+  background: #fff;
+  color: #1b1d21;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.xz-card-button:hover {
+  background: #f6f7f9;
+}
+
+.xz-card-button.xz-primary {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #fff;
+}
+
+.xz-card-button.xz-primary:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+}
+
+.xz-card-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 加载中旋转点 */
+.xz-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: xzSpin 0.7s linear infinite;
+}
+
+@keyframes xzSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .xz-card {
+    background: #1c1e23;
+    color: #edeef1;
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.6),
+      0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .xz-card-header {
+    border-bottom-color: #34383f;
+  }
+  .xz-card-header.xz-error {
+    border-bottom-color: rgba(248, 113, 113, 0.2);
+  }
+  .xz-card-header.xz-error .xz-card-icon {
+    background: rgba(248, 113, 113, 0.12);
+    color: #f87171;
+  }
+  .xz-card-field-label {
+    color: #9aa1ad;
+  }
+  .xz-card-field-value {
+    color: #edeef1;
+  }
+  .xz-card-footer {
+    background: #24272e;
+    border-top-color: #34383f;
+  }
+  .xz-card-button {
+    background: #24272e;
+    border-color: #34383f;
+    color: #edeef1;
+  }
+  .xz-card-button:hover {
+    background: #2c2f37;
+  }
+  .xz-card-button.xz-primary {
+    background: #818cf8;
+    border-color: #818cf8;
+    color: #1c1e23;
+  }
+  .xz-card-button.xz-primary:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+  }
+}
