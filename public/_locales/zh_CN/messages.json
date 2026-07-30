@@ -1,11 +1,11 @@
 {
   "extName": {
     "message": "小验子",
-    "description": "Extension name shown in the browser and store listing"
+    "description": "扩展在浏览器和商店里展示的名字"
   },
   "extDescription": {
     "message": "浏览器里的动态验证码工具。在页面上框选二维码即可添加，点一下就能把验证码填进输入框。",
-    "description": "Extension description shown in the store listing"
+    "description": "扩展在商店里展示的描述"
   },
   "popupEmpty": {
     "message": "还没有验证码"
@@ -24,5 +24,65 @@
   },
   "optionsTitle": {
     "message": "小验子设置"
+  },
+  "addDialogTitle": {
+    "message": "添加账号"
+  },
+  "addDialogIssuer": {
+    "message": "服务方"
+  },
+  "addDialogIssuerHint": {
+    "message": "例如 GitHub"
+  },
+  "addDialogLabel": {
+    "message": "账号"
+  },
+  "addDialogLabelHint": {
+    "message": "例如 you@example.com"
+  },
+  "addDialogSecret": {
+    "message": "密钥"
+  },
+  "addDialogSecretHint": {
+    "message": "从 2FA 设置页复制的 Base32 字符串"
+  },
+  "addDialogCancel": {
+    "message": "取消"
+  },
+  "addDialogSave": {
+    "message": "添加"
+  },
+  "addDialogSaving": {
+    "message": "添加中…"
+  },
+  "errSecretEmpty": {
+    "message": "密钥不能为空。"
+  },
+  "errSecretCharset": {
+    "message": "密钥只能是 Base32（大写 A-Z 和数字 2-7）。"
+  },
+  "errSecretTooShort": {
+    "message": "密钥太短，是不是没复制完整？"
+  },
+  "errLabelEmpty": {
+    "message": "服务方和账号至少要填一个。"
+  },
+  "errUnknown": {
+    "message": "出错了："
+  },
+  "rowClickToFill": {
+    "message": "点击复制"
+  },
+  "rowCopied": {
+    "message": "已复制"
+  },
+  "rowDelete": {
+    "message": "删除"
+  },
+  "rowReorderUp": {
+    "message": "上移"
+  },
+  "rowReorderDown": {
+    "message": "下移"
   }
 }

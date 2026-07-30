@@ -24,5 +24,65 @@
   },
   "optionsTitle": {
     "message": "XAuthZee settings"
+  },
+  "addDialogTitle": {
+    "message": "Add account"
+  },
+  "addDialogIssuer": {
+    "message": "Service"
+  },
+  "addDialogIssuerHint": {
+    "message": "e.g. GitHub"
+  },
+  "addDialogLabel": {
+    "message": "Account"
+  },
+  "addDialogLabelHint": {
+    "message": "e.g. you@example.com"
+  },
+  "addDialogSecret": {
+    "message": "Secret"
+  },
+  "addDialogSecretHint": {
+    "message": "Base32 string from the 2FA setup page"
+  },
+  "addDialogCancel": {
+    "message": "Cancel"
+  },
+  "addDialogSave": {
+    "message": "Add"
+  },
+  "addDialogSaving": {
+    "message": "Adding…"
+  },
+  "errSecretEmpty": {
+    "message": "Secret is required."
+  },
+  "errSecretCharset": {
+    "message": "Secret must be Base32 (letters A–Z and digits 2–7)."
+  },
+  "errSecretTooShort": {
+    "message": "Secret is too short. Did you copy the whole thing?"
+  },
+  "errLabelEmpty": {
+    "message": "Service or account is required."
+  },
+  "errUnknown": {
+    "message": "Something went wrong: "
+  },
+  "rowClickToFill": {
+    "message": "Click to copy"
+  },
+  "rowCopied": {
+    "message": "Copied"
+  },
+  "rowDelete": {
+    "message": "Remove"
+  },
+  "rowReorderUp": {
+    "message": "Move up"
+  },
+  "rowReorderDown": {
+    "message": "Move down"
   }
 }
