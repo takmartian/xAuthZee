@@ -1,7 +1,6 @@
 import { memo, useState } from 'react';
 import { t } from '@/lib/i18n';
 import type { Account } from '@/lib/model';
-import { displayName } from '@/lib/model';
 import { generateCode, groupCode } from '@/lib/totp';
 import { Ring } from './Ring';
 import { ChevronDownIcon, ChevronUpIcon, TrashIcon } from './Icon';
@@ -42,8 +41,12 @@ function CodeRowInner({
     window.setTimeout(() => setCopied(false), 1200);
   };
 
-  const title = displayName(account);
-  const sub = account.issuer && account.label ? account.label : null;
+  // 排版规则：issuer 作粗体标题，label 作灰色副标。
+  // 两者都有时不要写成 "GitHub (rex@ex.com)" + "rex@ex.com" ——
+  // 那样 label 出现两次，视觉冗余。
+  // 如果只有 label 没有 issuer，就把 label 当标题，避免出现完全空白的行。
+  const title = account.issuer || account.label;
+  const sub = account.issuer && account.label ? account.label : '';
 
   return (
     <div className={styles.row}>
