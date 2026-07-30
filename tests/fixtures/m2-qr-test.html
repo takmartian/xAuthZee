@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>XAuthZee M2 手动验证</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        max-width: 760px;
+        margin: 32px auto;
+        padding: 0 24px;
+        line-height: 1.6;
+        color: #1b1d21;
+        background: #fff;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #edeef1; background: #1c1e23; }
+        code { background: #24272e; }
+        .note { background: #2a2c48; }
+        .qr-cell { background: #fff; }
+        .blank { background: #f6f7f9; }
+      }
+      h1 { font-size: 20px; margin: 0 0 8px; }
+      h2 { font-size: 15px; margin: 24px 0 8px; }
+      .hint { color: #6b7280; font-size: 13px; margin: 0 0 16px; }
+      .qr-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        margin-bottom: 16px;
+      }
+      .qr-cell {
+        padding: 12px;
+        background: #fff;
+        border: 1px solid #e4e6ea;
+        border-radius: 8px;
+      }
+      .qr-cell img { display: block; width: 200px; height: 200px; }
+      .label {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        margin-top: 8px;
+        color: #6b7280;
+        word-break: break-all;
+        max-width: 200px;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background: #f6f7f9;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 12.5px;
+      }
+      .note {
+        background: #eef2ff;
+        border-left: 3px solid #4f46e5;
+        padding: 12px 16px;
+        border-radius: 4px;
+        margin: 16px 0;
+        font-size: 13px;
+      }
+      .blank {
+        background: #f6f7f9;
+        padding: 16px;
+        border-radius: 8px;
+        font-size: 18px;
+        margin-bottom: 16px;
+      }
+      ol { padding-left: 22px; }
+      li { margin: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>XAuthZee M2 手动验证页</h1>
+    <p class="hint">
+      模拟「打开 GitHub / Google / Microsoft 2FA 配置页」的视觉效果。
+      点扩展图标 →「扫描二维码」→ popup 应显示下方对应的 otpauth:// URI。
+    </p>
+
+    <div class="note">
+      <strong>验证项</strong>
+      <ol>
+        <li>弹出后立刻关 popup：到 chrome://extensions → Service Worker 控制台，应看到 <code>[XAuthZee] scan: captured WIDTH x HEIGHT</code>，证明 captureVisibleTab 在 popup 关闭后仍成功。</li>
+        <li>分别在 100% / 125% / 150% / 200% 页面缩放下扫描同一张图：解码文本应一致。</li>
+        <li>故意把页面缩到 Retina 屏 + 150% 缩放：仍能正确解码。</li>
+        <li>扫页面下方的纯文字干扰项：popup 应显示「没找到二维码」。</li>
+      </ol>
+    </div>
+
+    <h2>三个不同服务商、不同参数</h2>
+    <p class="hint">SHA1/6 位、SHA256/8 位、SHA1/6 位 — 覆盖典型 2FA 参数组合。</p>
+    <div class="qr-grid">
+      <div class="qr-cell">
+        <img src="./m2-qr-images/1-github.png" alt="GitHub" />
+        <div class="label">otpauth://totp/GitHub:rex@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub</div>
+      </div>
+      <div class="qr-cell">
+        <img src="./m2-qr-images/2-google.png" alt="Google" />
+        <div class="label">otpauth://totp/Google:rex@gmail.com?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=Google&algorithm=SHA256&digits=8</div>
+      </div>
+      <div class="qr-cell">
+        <img src="./m2-qr-images/3-microsoft.png" alt="Microsoft" />
+        <div class="label">otpauth://totp/Microsoft:rex@outlook.com?secret=MFRGGZDFMZTWQ2LKOBQW4IDPMFZGCZDDNZSG4&issuer=Microsoft</div>
+      </div>
+    </div>
+
+    <h2>反例：纯文字（应返回「没找到二维码」）</h2>
+    <div class="blank">No QR code here. Just some text. 1234567890.</div>
+  </body>
+</html>

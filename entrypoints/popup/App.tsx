@@ -1,8 +1,42 @@
+import { useState } from 'react';
 import { t } from '@/lib/i18n';
 import { browser } from 'wxt/browser';
 import styles from './App.module.css';
 
+/**
+ * M2 阶段：极简 popup，只为了打通「点扫描 → 截屏 → 解码」链路。
+ * 真正的列表 UI 与倒计时环放在 M4。
+ */
 export default function App() {
+  const [status, setStatus] = useState<ScanStatus>({ kind: 'idle' });
+
+  async function onScan() {
+    setStatus({ kind: 'working', phase: '截屏并解码…' });
+    try {
+      const res = await browser.runtime.sendMessage({ type: 'm2-scan-qr' });
+      const r = res as ScanResult | undefined;
+      if (!r) {
+        setStatus({ kind: 'error', message: '后台无响应' });
+        return;
+      }
+      if (r.error) {
+        setStatus({ kind: 'error', message: r.error });
+        return;
+      }
+      setStatus({
+        kind: 'done',
+        text: r.text,
+        captureWidth: r.captureWidth,
+        captureHeight: r.captureHeight,
+      });
+    } catch (err) {
+      setStatus({
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   return (
     <div className={styles.root}>
       <header className={styles.header}>
@@ -24,12 +58,41 @@ export default function App() {
       </header>
 
       <div className={styles.empty}>
-        <p className={styles.emptyTitle}>{t('popupEmpty')}</p>
-        <p className={styles.emptyHint}>{t('popupEmptyHint')}</p>
+        {status.kind === 'idle' && (
+          <>
+            <p className={styles.emptyTitle}>{t('popupEmpty')}</p>
+            <p className={styles.emptyHint}>{t('popupEmptyHint')}</p>
+          </>
+        )}
+        {status.kind === 'working' && (
+          <p className={styles.emptyTitle}>{status.phase}</p>
+        )}
+        {status.kind === 'done' && (
+          <div className={styles.result}>
+            {status.text ? (
+              <>
+                <p className={styles.resultLabel}>解码结果</p>
+                <code className={styles.resultText}>{status.text}</code>
+                {status.captureWidth && (
+                  <p className={styles.resultMeta}>
+                    截屏 {status.captureWidth} × {status.captureHeight}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className={styles.emptyTitle}>没找到二维码</p>
+            )}
+          </div>
+        )}
+        {status.kind === 'error' && (
+          <p className={styles.emptyTitle} style={{ color: 'var(--xz-danger)' }}>
+            {status.message}
+          </p>
+        )}
       </div>
 
       <footer className={styles.footer}>
-        <button className={styles.primary} disabled>
+        <button className={styles.primary} onClick={onScan} disabled={status.kind === 'working'}>
           {t('actionScanQr')}
         </button>
         <button className={styles.secondary} disabled>
@@ -38,6 +101,22 @@ export default function App() {
       </footer>
     </div>
   );
+}
+
+interface ScanStatus {
+  kind: 'idle' | 'working' | 'done' | 'error';
+  phase?: string;
+  text?: string | null;
+  message?: string;
+  captureWidth?: number;
+  captureHeight?: number;
+}
+
+interface ScanResult {
+  text: string | null;
+  captureWidth?: number;
+  captureHeight?: number;
+  error?: string;
 }
 
 function GearIcon() {
