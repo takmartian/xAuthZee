@@ -1,0 +1,128 @@
+/* OTP 聚焦浮层样式。
+ *
+ * 注意：浮层挂到 Shadow DOM 里，这里写 :host 不会与宿主页冲突。
+ * 设计 token（颜色 / 间距 / 圆角）从 :root 上读 —— Shadow DOM 看不见
+ * 宿主页的 :root 自定义属性，所以这部分由 theme.css 在 Shadow 内重新
+ * 声明。这里直接用真实值，不依赖外部变量。
+ */
+
+.xz-panel {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, 'Helvetica Neue',
+    Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #1a1a1a;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.06);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+  /* 浮层永远在最高层 —— 用略低于 int32.max 的值，避免被页面弹窗压住 */
+  z-index: 2147483000;
+  box-sizing: border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .xz-panel {
+    color: #f1f1f1;
+    background: #2a2a2a;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.45),
+      0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.xz-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.xz-row:hover,
+.xz-row:focus-visible {
+  background: rgba(64, 158, 255, 0.12);
+  outline: none;
+}
+
+.xz-row + .xz-row {
+  margin-top: 1px;
+}
+
+.xz-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.xz-row-title {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xz-row-sub {
+  font-size: 11.5px;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xz-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border-radius: 999px;
+  text-transform: lowercase;
+}
+
+.xz-badge-subdomain {
+  background: rgba(64, 158, 255, 0.16);
+  color: #1976d2;
+}
+
+.xz-badge-shared {
+  background: rgba(255, 152, 0, 0.18);
+  color: #b85c00;
+}
+
+@media (prefers-color-scheme: dark) {
+  .xz-badge-subdomain {
+    background: rgba(64, 158, 255, 0.22);
+    color: #6cb6ff;
+  }
+  .xz-badge-shared {
+    background: rgba(255, 152, 0, 0.22);
+    color: #ffb866;
+  }
+}
+
+.xz-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.55;
+}

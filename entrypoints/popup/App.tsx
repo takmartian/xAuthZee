@@ -87,13 +87,31 @@ export default function App() {
     const { code } = await import('@/lib/totp').then((m) =>
       m.generateCode(account, Date.now()),
     );
-    // navigator.clipboard 在 popup 上下文里需要 focus —— popup 默认 focused，
-    // 通常没问题。极少数场景下（用户刚切回 popup 的瞬间）可能失败，
-    // 但用户能看到复制状态会恢复。
+
+    // 1) 优先尝试直接填到当前 tab 上次聚焦的 OTP 输入框
+    let filled = false;
+    try {
+      const tabs = await browser.tabs.query({ active: true, lastFocusedWindow: true });
+      const tab = tabs[0];
+      if (tab?.id) {
+        const res = (await browser.tabs.sendMessage(tab.id, {
+          type: 'otpfill:fill',
+          accountId: account.id,
+        })) as { ok?: boolean; error?: string } | undefined;
+        if (res?.ok) filled = true;
+      }
+    } catch {
+      // content script 没装、tab 不是 http(s)、权限被拒等都到这里
+    }
+
+    if (filled) return;
+
+    // 2) 兜底：复制到剪贴板。navigator.clipboard 在 popup 上下文里需要
+    //    focus，少数场景下（刚切回 popup 的瞬间）可能失败 —— 静默。
     try {
       await navigator.clipboard.writeText(code);
     } catch {
-      // 静默：M7 里会改成先尝试填充，clipboard 是兜底。
+      /* 静默 */
     }
   }, []);
 

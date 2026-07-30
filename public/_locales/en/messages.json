@@ -138,5 +138,29 @@
   },
   "optionsBindingsRemove": {
     "message": "Remove this binding"
+  },
+  "optionsPanelTitle": {
+    "message": "Auto-fill panel"
+  },
+  "optionsPanelSubtitle": {
+    "message": "When you focus an OTP input, a panel appears below it with the codes bound to the current site."
+  },
+  "optionsPanelEnabled": {
+    "message": "Show the panel on OTP input fields"
+  },
+  "optionsBroadDetection": {
+    "message": "Also recognize inputs by keywords (验证码, OTP, verification code…)"
+  },
+  "optionsDisabledHosts": {
+    "message": "Never show the panel on these sites"
+  },
+  "optionsDisabledHostsEmpty": {
+    "message": "No sites disabled yet."
+  },
+  "optionsDisabledHostsPlaceholder": {
+    "message": "example.com"
+  },
+  "actionAdd": {
+    "message": "Add"
   }
 }

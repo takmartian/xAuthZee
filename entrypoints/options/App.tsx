@@ -1,30 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import { t } from '@/lib/i18n';
 import { vault, watchVault } from '@/lib/storage';
-import type { Account } from '@/lib/model';
+import { DEFAULT_PREFS, type Account, type Prefs } from '@/lib/model';
 import { CloseIcon } from '@/components/Icon';
 import styles from './App.module.css';
 
 /**
- * 设置页 —— M6 阶段先做「域名绑定管理」。
+ * 设置页。
  *
- * 按域名聚合展示：每个域名下列出绑定了它的账号（issuer + label），
- * 点 × 解绑。后续 M9 会在这一页里加主密码、导入导出和高级偏好。
- *
- * 跨账号聚合的意义：同一个域名被多个人或同一个人的多个账号绑定的情况
- * 不算罕见（个人 GitHub + 工作 GitHub），按域名聚合比按账号聚合更直观。
+ * M6：域名绑定管理（按域名聚合）。
+ * M7：聚焦浮层偏好（panelEnabled / broadDetection / disabledHosts）。
  */
 export default function App() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
 
   useEffect(() => {
     let cancelled = false;
     void vault.list().then((list) => {
       if (!cancelled) setAccounts(list);
     });
+    void vault.getPrefs().then((p) => {
+      if (!cancelled) setPrefs(p);
+    });
     const unwatch = watchVault(() => {
       void vault.list().then((list) => {
         if (!cancelled) setAccounts(list);
+      });
+      void vault.getPrefs().then((p) => {
+        if (!cancelled) setPrefs(p);
       });
     });
     return () => {
@@ -43,7 +47,6 @@ export default function App() {
         else map.set(d, [a]);
       }
     }
-    // 排序：先按域名字典序，再按账号 issuer + label
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [accounts]);
 
@@ -53,41 +56,147 @@ export default function App() {
     });
   };
 
+  const updatePref = async <K extends keyof Prefs>(key: K, value: Prefs[K]) => {
+    setPrefs((p) => ({ ...p, [key]: value }));
+    await vault.setPrefs({ [key]: value } as Partial<Prefs>);
+  };
+
+  const removeDisabledHost = async (host: string) => {
+    await updatePref(
+      'disabledHosts',
+      prefs.disabledHosts.filter((h) => h !== host),
+    );
+  };
+
+  const addDisabledHost = async (raw: string) => {
+    const host = raw.trim().toLowerCase();
+    if (!host) return;
+    if (prefs.disabledHosts.includes(host)) return;
+    await updatePref('disabledHosts', [...prefs.disabledHosts, host]);
+  };
+
   return (
     <div className={styles.page}>
-      <h1 className={styles.heading}>{t('optionsBindingsTitle')}</h1>
-      <p className={styles.subtitle}>{t('optionsBindingsSubtitle')}</p>
+      <h1 className={styles.heading}>{t('optionsTitle')}</h1>
 
-      {grouped.length === 0 ? (
-        <p className={styles.placeholder}>{t('optionsBindingsEmpty')}</p>
-      ) : (
-        <ul className={styles.list}>
-          {grouped.map(([domain, list]) => (
-            <li key={domain} className={styles.item}>
-              <div className={styles.domain}>{domain}</div>
-              <ul className={styles.accounts}>
-                {list.map((a) => (
-                  <li key={a.id} className={styles.account}>
-                    <span className={styles.accountName}>
-                      {a.issuer || a.label}
-                      {a.issuer && a.label ? ` (${a.label})` : ''}
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.removeButton}
-                      onClick={() => void handleUnbind(a, domain)}
-                      title={t('optionsBindingsRemove')}
-                      aria-label={t('optionsBindingsRemove')}
-                    >
-                      <CloseIcon />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* M7：浮层偏好 */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>{t('optionsPanelTitle')}</h2>
+        <p className={styles.subtitle}>{t('optionsPanelSubtitle')}</p>
+
+        <label className={styles.toggle}>
+          <input
+            type="checkbox"
+            checked={prefs.panelEnabled}
+            onChange={(e) => void updatePref('panelEnabled', e.target.checked)}
+          />
+          <span>{t('optionsPanelEnabled')}</span>
+        </label>
+
+        <label className={styles.toggle}>
+          <input
+            type="checkbox"
+            checked={prefs.broadDetection}
+            onChange={(e) => void updatePref('broadDetection', e.target.checked)}
+          />
+          <span>{t('optionsBroadDetection')}</span>
+        </label>
+
+        <div className={styles.disabledList}>
+          <div className={styles.disabledLabel}>{t('optionsDisabledHosts')}</div>
+          {prefs.disabledHosts.length === 0 ? (
+            <div className={styles.placeholder}>{t('optionsDisabledHostsEmpty')}</div>
+          ) : (
+            <ul className={styles.disabledHosts}>
+              {prefs.disabledHosts.map((host) => (
+                <li key={host} className={styles.disabledHost}>
+                  <span>{host}</span>
+                  <button
+                    type="button"
+                    onClick={() => void removeDisabledHost(host)}
+                    className={styles.removeButton}
+                    title={t('optionsBindingsRemove')}
+                  >
+                    <CloseIcon />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <AddHostInput onAdd={(h) => void addDisabledHost(h)} />
+        </div>
+      </section>
+
+      {/* M6：域名绑定管理 */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>{t('optionsBindingsTitle')}</h2>
+        <p className={styles.subtitle}>{t('optionsBindingsSubtitle')}</p>
+
+        {grouped.length === 0 ? (
+          <p className={styles.placeholder}>{t('optionsBindingsEmpty')}</p>
+        ) : (
+          <ul className={styles.list}>
+            {grouped.map(([domain, list]) => (
+              <li key={domain} className={styles.item}>
+                <div className={styles.domain}>{domain}</div>
+                <ul className={styles.accounts}>
+                  {list.map((a) => (
+                    <li key={a.id} className={styles.account}>
+                      <span className={styles.accountName}>
+                        {a.issuer || a.label}
+                        {a.issuer && a.label ? ` (${a.label})` : ''}
+                      </span>
+                      <button
+                        type="button"
+                        className={styles.removeButton}
+                        onClick={() => void handleUnbind(a, domain)}
+                        title={t('optionsBindingsRemove')}
+                        aria-label={t('optionsBindingsRemove')}
+                      >
+                        <CloseIcon />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function AddHostInput({ onAdd }: { onAdd: (host: string) => void }) {
+  const [value, setValue] = useState('');
+  const submit = () => {
+    if (value.trim()) {
+      onAdd(value);
+      setValue('');
+    }
+  };
+  return (
+    <div className={styles.addHostRow}>
+      <input
+        className={styles.addHostInput}
+        value={value}
+        placeholder={t('optionsDisabledHostsPlaceholder')}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submit();
+          }
+        }}
+      />
+      <button
+        type="button"
+        className={styles.addHostButton}
+        onClick={submit}
+        disabled={!value.trim()}
+      >
+        {t('actionAdd')}
+      </button>
     </div>
   );
 }

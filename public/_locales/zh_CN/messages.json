@@ -138,5 +138,29 @@
   },
   "optionsBindingsRemove": {
     "message": "删除这条绑定"
+  },
+  "optionsPanelTitle": {
+    "message": "自动填充浮层"
+  },
+  "optionsPanelSubtitle": {
+    "message": "聚焦 OTP 输入框时，在输入框下方浮出当前站点绑定的验证码列表。"
+  },
+  "optionsPanelEnabled": {
+    "message": "在 OTP 输入框下方浮出验证码面板"
+  },
+  "optionsBroadDetection": {
+    "message": "同时识别带关键词的输入框（验证码、OTP、verification code 等）"
+  },
+  "optionsDisabledHosts": {
+    "message": "在这些网站上永不显示浮层"
+  },
+  "optionsDisabledHostsEmpty": {
+    "message": "还没有禁用的网站。"
+  },
+  "optionsDisabledHostsPlaceholder": {
+    "message": "example.com"
+  },
+  "actionAdd": {
+    "message": "添加"
   }
 }
