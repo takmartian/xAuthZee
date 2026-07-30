@@ -6,8 +6,6 @@ import { anyMatch } from '@/lib/domain';
 import { generateCode } from '@/lib/totp';
 import { mountPanel, type OverlayHandle, type OverlayListItem } from './Overlay';
 import type { Account } from '@/lib/model';
-// Vite ?inline 把 panel.css 作为字符串打进 bundle，注入到 Shadow DOM。
-import panelCss from './panel.css?inline';
 
 /**
  * 常驻内容脚本（M7）：OTP 输入框聚焦浮层 + 填充。
@@ -126,15 +124,7 @@ export default defineContentScript({
       });
       currentPanel = panel;
 
-      // 把样式 + 内容挂到 Shadow DOM 上
-      const hostEl = document.createElement('div');
-      hostEl.dataset.xzPanelHost = '';
-      const shadow = hostEl.attachShadow({ mode: 'open' });
-      const style = document.createElement('style');
-      style.textContent = panelCss;
-      shadow.append(style);
-      shadow.append(panel.root);
-      document.documentElement.append(hostEl);
+      // Overlay 自己已经挂到 documentElement 下了
       panel.position(target.getBoundingClientRect(), {
         width: window.innerWidth,
         height: window.innerHeight,
@@ -144,7 +134,7 @@ export default defineContentScript({
       const onFocusOut = (e: FocusEvent) => {
         // 关掉当焦点彻底离开 input 且没落在浮层内
         const next = e.relatedTarget as Node | null;
-        if (next && shadow.contains(next)) return;
+        if (next && panel.root.contains(next)) return;
         if (next === target) return;
         panel.destroy();
         target.removeEventListener('focusout', onFocusOut);
@@ -171,21 +161,46 @@ export default defineContentScript({
       target.focus();
     }
 
-    // ---- focusin 委托
+    // ---- focusin + click 委托
+    //
+    // focusin 处理「刚聚焦到 OTP 输入框」的情况。
+    // 但有一种情况 focusin 不会再次触发：用户点错选项后浮层关掉，但
+    // mousedown.preventDefault 让 input 保持聚焦 —— 这时浏览器不再发
+    // focusin。需要 click 兜底：在没有浮层且点击命中 OTP 输入框时主动
+    // 重新挂一个。
+    const handler = (target: HTMLInputElement | HTMLTextAreaElement) => {
+      const kind = detectOtpField(target, {
+        host: window.location.host,
+        broadDetection: true,
+        disabledHosts: [],
+      });
+      if (kind === 'none') return;
+      // 已经有浮层且挂在同一个 target 上 —— 不重复挂
+      if (currentPanel && currentTarget === target) return;
+      // showPanel 只处理 HTMLInputElement —— textarea 我们也按单输入框路径走
+      if (target instanceof HTMLInputElement) {
+        void showPanel(target);
+      }
+    };
     document.addEventListener(
       'focusin',
       (e) => {
-        const target = e.target as Element | null;
-        if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) {
-          return;
+        const t = e.target;
+        if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) {
+          handler(t);
         }
-        const kind = detectOtpField(target, {
-          host: window.location.host,
-          broadDetection: true,
-          disabledHosts: [],
-        });
-        if (kind === 'none') return;
-        void showPanel(target as HTMLInputElement);
+      },
+      true,
+    );
+    // click 兜底：focusin 没发但用户点了 input（通常是浮层关掉后想再选）
+    document.addEventListener(
+      'click',
+      (e) => {
+        const t = e.target;
+        if (!(t instanceof HTMLInputElement) && !(t instanceof HTMLTextAreaElement)) return;
+        // 仅在「浮层不在」时挂 —— 否则 click 进浮层会被误判
+        if (currentPanel) return;
+        handler(t);
       },
       true,
     );

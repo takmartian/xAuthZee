@@ -17,10 +17,14 @@
  *    click 不会触发宿主页面的 click handler（反之亦然）。
  *
  * 5. Esc 关掉浮层并让 focus 回到输入框。
+ *
+ * 6. 点浮层外的任意位置关掉（mousedown 在 document 上 capture）。input
+ *    失焦先走 focusout 关浮层，document 上的 mousedown 是二次保险。
  */
 
 import { h } from '@/lib/dom';
 import type { Account } from '@/lib/model';
+import panelCss from './panel.css?inline';
 
 export interface OverlayHandle {
   readonly root: HTMLElement;
@@ -42,14 +46,21 @@ export interface OverlayListItem {
 }
 
 /**
- * 把浮层挂到 documentElement 下，挂完返回 handle。
+ * 创建浮层 host（挂在 documentElement 下，Shadow DOM 内）。
  *
- * 调用方负责把 host 元素 append 到 document.documentElement。
+ * 调用方持有 handle，结束时调 destroy。
  */
 export function mountPanel(items: OverlayListItem[], cb: OverlayCallbacks): OverlayHandle {
-  const root = h('div', { class: 'xz-panel', attrs: { role: 'listbox' } });
-  root.dataset.xzPanel = '';
+  // ---- Shadow DOM 容器
+  const hostEl = document.createElement('div');
+  hostEl.dataset.xzPanelHost = '';
+  const shadow = hostEl.attachShadow({ mode: 'open' });
+  const style = document.createElement('style');
+  style.textContent = panelCss;
+  shadow.append(style);
 
+  // ---- 浮层根
+  const root = h('div', { class: 'xz-panel', attrs: { role: 'listbox' } });
   if (items.length === 0) {
     root.append(emptyHint());
   } else {
@@ -57,6 +68,8 @@ export function mountPanel(items: OverlayListItem[], cb: OverlayCallbacks): Over
       root.append(row(item, cb));
     }
   }
+  shadow.append(root);
+  document.documentElement.append(hostEl);
 
   let destroyed = false;
 
@@ -70,10 +83,20 @@ export function mountPanel(items: OverlayListItem[], cb: OverlayCallbacks): Over
   // capture: true 让我们的 handler 先于宿主页的 Esc 处理跑（如果有的话）
   window.addEventListener('keydown', onKey, true);
 
-  // ---- 滚动 / 缩放时 caller 自己会调 position()，但窗口 resize 也要管
+  // ---- 点浮层外面关掉（mousedown 而不是 click —— click 在 Shadow DOM
+  // 内的条目上不冒泡到 document）
+  const onDocPointerDown = (e: MouseEvent) => {
+    const t = e.target as Node | null;
+    if (!t) return;
+    if (root.contains(t)) return;
+    // Shadow DOM 内的 t 可能让 root.contains 不可靠，host 也判一下
+    if (hostEl.contains(t)) return;
+    cleanup();
+  };
+  document.addEventListener('mousedown', onDocPointerDown, true);
+
   const onResize = () => {
-    // 不在这里重算 rect —— caller 持有 target 引用，让 caller 在 useEffect
-    // 里订阅 resize 重新 position。这里只负责清理。
+    /* caller 自己监听 resize 重新 position */
   };
   window.addEventListener('resize', onResize);
 
@@ -81,16 +104,15 @@ export function mountPanel(items: OverlayListItem[], cb: OverlayCallbacks): Over
     if (destroyed) return;
     destroyed = true;
     window.removeEventListener('keydown', onKey, true);
+    document.removeEventListener('mousedown', onDocPointerDown, true);
     window.removeEventListener('resize', onResize);
-    root.remove();
+    hostEl.remove();
   }
 
   // ---- position
   function position(targetRect: DOMRect, viewport: { width: number; height: number }) {
-    // 默认挂在输入框正下方，留 4px 间距
     const top = targetRect.bottom + 4;
     let left = targetRect.left;
-    // 浮层宽度按 items 数量动态：先固定 240，看是否溢出
     const PANEL_WIDTH = 240;
     if (left + PANEL_WIDTH > viewport.width - 8) {
       left = Math.max(8, viewport.width - PANEL_WIDTH - 8);
@@ -101,7 +123,6 @@ export function mountPanel(items: OverlayListItem[], cb: OverlayCallbacks): Over
       left: `${left}px`,
       width: `${PANEL_WIDTH}px`,
       maxHeight: `${Math.max(120, viewport.height - top - 8)}px`,
-      // 重要：浮层用 fixed 不依赖任何祖先的 transform/filter
       zIndex: '2147483000',
     });
   }

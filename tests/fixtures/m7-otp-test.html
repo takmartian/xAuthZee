@@ -29,6 +29,11 @@
         padding: 24px;
         max-width: 920px;
       }
+      /* [hidden] 默认 display:none，但被 .modal-overlay { display:grid } 覆盖了。
+         显式声明优先级，让 hidden 重新生效。 */
+      [hidden] {
+        display: none !important;
+      }
       h1 {
         margin: 0 0 6px;
         font-size: 20px;
