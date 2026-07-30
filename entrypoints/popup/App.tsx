@@ -13,9 +13,14 @@ export default function App() {
   async function onScan() {
     setStatus({ kind: 'working', phase: '截屏并解码…' });
     try {
-      // 让 popup 自己拿 active tab，而不是 background 反向查找。
-      // 后者会因为 popup 抢走焦点而找不到宿主页的窗口。
-      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      // 让 popup 自己拿宿主页的 tab，而不是 background 反向查找。
+      //
+      // 这里用 lastFocusedWindow 而不是 currentWindow，是因为：
+      // - currentWindow 在 popup 里指的是 popup 自身那个无 tab 的小窗口，
+      //   query 会拿到一个奇怪的伪 tab，给 background 后报 "No window with id"
+      // - lastFocusedWindow 是「最近被聚焦的正常窗口」，
+      //   popup 抢焦点之前，用户所在的那个页面所在的窗口正是这个
+      const tabs = await browser.tabs.query({ active: true, lastFocusedWindow: true });
       const tab = tabs[0];
       if (!tab?.id) throw new Error('popup 找不到当前标签页');
 
