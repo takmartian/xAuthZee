@@ -170,7 +170,7 @@ export function AddDialog({ open, onClose, onSave }: AddDialogProps) {
               autoComplete="off"
               spellCheck={false}
               autoCapitalize="characters"
-              rows={3}
+              rows={2}
             />
           </label>
 

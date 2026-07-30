@@ -2,7 +2,10 @@
   width: 360px;
   display: flex;
   flex-direction: column;
-  min-height: 240px;
+  /* Chrome popup 的高度在打开那一刻根据内容确定，之后不会再变。
+     这个 min-height 是「最坏情况」—— AddDialog 完整展开时也要能
+     装下；平时无对话框时空出来的那点空间用户也注意不到。 */
+  min-height: 520px;
   background: var(--xz-bg);
 }
 
@@ -50,7 +53,7 @@
      把 footer 推出可见区。 */
   flex: 1;
   overflow-y: auto;
-  max-height: 540px;
+  max-height: 420px;
   scrollbar-width: thin;
 }
 

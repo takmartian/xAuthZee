@@ -20,8 +20,8 @@
 .panel {
   width: 320px;
   max-width: calc(100% - 24px);
-  /* Chrome popup 上限约 600px。弹窗本身（包括 header / footer）要能放下。 */
-  max-height: calc(100% - 24px);
+  /* 弹窗本身 min-height 是 520px，这里再留 24px 边距。 */
+  max-height: 496px;
   overflow-y: auto;
   background: var(--xz-bg);
   border-radius: var(--xz-radius);
@@ -118,7 +118,7 @@
   font-size: 12px;
   letter-spacing: 0.5px;
   resize: vertical;
-  min-height: 64px;
+  min-height: 50px;
 }
 
 .input:focus,
