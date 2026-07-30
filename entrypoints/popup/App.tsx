@@ -22,9 +22,15 @@ export default function App() {
       //   popup 抢焦点之前，用户所在的那个页面所在的窗口正是这个
       const tabs = await browser.tabs.query({ active: true, lastFocusedWindow: true });
       const tab = tabs[0];
-      if (!tab?.id) throw new Error('popup 找不到当前标签页');
+      if (!tab?.id || tab.windowId === undefined) {
+        throw new Error('popup 找不到当前标签页');
+      }
 
-      const res = await browser.runtime.sendMessage({ type: 'm2-scan-qr', tabId: tab.id });
+      const res = await browser.runtime.sendMessage({
+        type: 'm2-scan-qr',
+        tabId: tab.id,
+        windowId: tab.windowId,
+      });
       const r = res as ScanResult | undefined;
       if (!r) {
         setStatus({ kind: 'error', message: '后台无响应' });

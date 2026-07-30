@@ -26,6 +26,12 @@ import { browser } from 'wxt/browser';
 interface ScanRequest {
   type: 'm2-scan-qr';
   tabId: number;
+  /**
+   * captureVisibleTab 的第一个参数是 windowId 而非 tabId。
+   * popup 一并传过来，避免 background 再反向查 tab 拿到过期的
+   * windowId 或者压根查不到。
+   */
+  windowId: number;
 }
 
 interface ScanResponse {
@@ -44,7 +50,7 @@ export default defineBackground(() => {
     const req = message as ScanRequest | undefined;
     if (req?.type !== 'm2-scan-qr') return;
 
-    handleScan(req.tabId).then(sendResponse).catch((err: unknown) => {
+    handleScan(req.tabId, req.windowId).then(sendResponse).catch((err: unknown) => {
       console.error('[XAuthZee] scan failed', err);
       sendResponse({ text: null, error: err instanceof Error ? err.message : String(err) });
     });
@@ -54,7 +60,7 @@ export default defineBackground(() => {
   });
 });
 
-async function handleScan(tabId: number): Promise<ScanResponse> {
+async function handleScan(tabId: number, windowId: number): Promise<ScanResponse> {
   console.info('[XAuthZee] scan: injecting qrselect into tab', tabId);
 
   // 1) 按需注入框选遮罩。当前 M2 阶段它只注册解码监听器；
@@ -67,7 +73,10 @@ async function handleScan(tabId: number): Promise<ScanResponse> {
   // 2) 截屏。captureVisibleTab 必须有 activeTab 或 <all_urls>。
   //    用户点扩展图标这一刻 activeTab 已授予，所以这一步不需要
   //    <all_urls> 就能成功 —— 这正是用 activeTab 而非 <all_urls> 的好处。
-  const dataUrl = await browser.tabs.captureVisibleTab(tabId, { format: 'png' });
+  //
+  //    注意第一个参数是 windowId 而非 tabId —— 这个 API 跟其他
+  //    chrome.tabs.* 都不一样，是文档里不显眼但容易踩的坑。
+  const dataUrl = await browser.tabs.captureVisibleTab(windowId, { format: 'png' });
 
   // 3) 拿到截屏尺寸。从 data URL 头里解析即可，不必真去解码。
   const { width: captureWidth, height: captureHeight } = parsePngDimensions(dataUrl);
