@@ -13,7 +13,13 @@ export default function App() {
   async function onScan() {
     setStatus({ kind: 'working', phase: '截屏并解码…' });
     try {
-      const res = await browser.runtime.sendMessage({ type: 'm2-scan-qr' });
+      // 让 popup 自己拿 active tab，而不是 background 反向查找。
+      // 后者会因为 popup 抢走焦点而找不到宿主页的窗口。
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      const tab = tabs[0];
+      if (!tab?.id) throw new Error('popup 找不到当前标签页');
+
+      const res = await browser.runtime.sendMessage({ type: 'm2-scan-qr', tabId: tab.id });
       const r = res as ScanResult | undefined;
       if (!r) {
         setStatus({ kind: 'error', message: '后台无响应' });
