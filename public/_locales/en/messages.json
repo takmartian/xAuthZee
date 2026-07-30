@@ -84,5 +84,59 @@
   },
   "rowReorderDown": {
     "message": "Move down"
+  },
+  "rowMore": {
+    "message": "More",
+    "description": "Open the row menu for binding and other actions"
+  },
+  "rowMenuBindExact": {
+    "message": "Exact",
+    "description": "Bind only this exact host (no subdomains)"
+  },
+  "rowMenuBindRegistrable": {
+    "message": "Includes subdomains",
+    "description": "Bind the registrable domain so subdomains also match"
+  },
+  "rowMenuBindShared": {
+    "message": "Shared domain",
+    "description": "Shared hosting domain — only exact match for safety"
+  },
+  "rowMenuUnbind": {
+    "message": "Unbind $HOST$",
+    "description": "Remove the binding for this host",
+    "placeholders": {
+      "host": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "rowMenuUnbindTitle": {
+    "message": "Remove this binding",
+    "description": "Tooltip for unbind action on a previously-bound domain"
+  },
+  "rowMenuRemove": {
+    "message": "Remove"
+  },
+  "rowMenuNoHost": {
+    "message": "Open a web page first to bind this site.",
+    "description": "Shown in the row menu when no current tab host is available"
+  },
+  "rowMenuNoCandidates": {
+    "message": "Already bound to this site.",
+    "description": "Shown in the row menu when the host is already in the account's bindings"
+  },
+  "optionsBindingsTitle": {
+    "message": "Domain bindings",
+    "description": "Title of the settings page section for managing domain bindings"
+  },
+  "optionsBindingsSubtitle": {
+    "message": "Accounts bound to a domain rise to the top of the popup on that domain. Shared-hosting domains (like github.io) match only exactly."
+  },
+  "optionsBindingsEmpty": {
+    "message": "No bindings yet. Use the ⋯ menu on a popup row to bind the current site."
+  },
+  "optionsBindingsRemove": {
+    "message": "Remove this binding"
   }
 }

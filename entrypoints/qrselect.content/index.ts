@@ -82,6 +82,7 @@ export default defineContentScript({
     document.addEventListener(
       'xz-selection-done',
       (ev) => {
+        console.info('[XAuthZee] cs: xz-selection-done received', (ev as CustomEvent).detail);
         const detail = (ev as CustomEvent<SelectionResult>).detail;
         void handleSelection(overlay, detail);
       },
@@ -100,6 +101,12 @@ export default defineContentScript({
 });
 
 function mountOntoHost(overlay: OverlayHandle) {
+  // 如果上一次扫描的 host 还挂在文档上，先拆掉。每次 background 注入
+  // 都会重新跑 main()，但旧的 host 元素还在 DOM 里 —— 用户多次点扫描
+  // 就会叠加浮层。
+  const existing = document.getElementById('xauthzee-qrselect-host');
+  if (existing) existing.remove();
+
   const host = document.createElement('div');
   host.id = 'xauthzee-qrselect-host';
   // 内容脚本里直接挂 Shadow DOM，不走 createShadowRootUi
@@ -288,16 +295,15 @@ function resetOverlayToIdle(overlay: OverlayHandle) {
   if (card) card.remove();
 }
 
-/** 拿截屏。让 background 做 captureVisibleTab 然后发回来 */
-async function requestCapture(rect: { x: number; y: number; w: number; h: number }): Promise<CaptureResponse> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs[0];
-  if (!tab?.id) throw new Error('no active tab');
+
+/** 拿截屏。MV3 限制：content script 不能直接调 chrome.tabs.*，
+ * captureVisibleTab 只在 background / popup / options 里可用。
+ * 所以仍然走 background 中转，但这次我们把 tabId/windowId 存到
+ * pending 状态，由 background 自己取（不再用 popup 关闭前抓的值）。 */
+async function requestCapture(_rect: { x: number; y: number; w: number; h: number }): Promise<CaptureResponse> {
+  // 让 background 自己用 sender.tab / sender.window 知道是哪个 tab
   const res = (await browser.runtime.sendMessage({
     type: 'm2-qrselect-region',
-    tabId: tab.id,
-    windowId: tab.windowId,
-    rect,
   })) as CaptureResponse | undefined;
   if (!res?.dataUrl) throw new Error('background returned no capture');
   return res;

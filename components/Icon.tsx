@@ -91,3 +91,13 @@ export function KeyboardIcon(p: IconProps) {
     </svg>
   );
 }
+
+export function MoreIcon(p: IconProps) {
+  return (
+    <svg {...svgProps(p)}>
+      <circle cx="3.5" cy="8" r="1" fill="currentColor" />
+      <circle cx="8" cy="8" r="1" fill="currentColor" />
+      <circle cx="12.5" cy="8" r="1" fill="currentColor" />
+    </svg>
+  );
+}

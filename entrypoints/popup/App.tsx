@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { t } from '@/lib/i18n';
 import { vault, watchVault } from '@/lib/storage';
 import type { Account } from '@/lib/model';
+import { anyMatch } from '@/lib/domain';
 import { CodeRow } from '@/components/CodeRow';
 import { AddDialog } from '@/components/AddDialog';
 import { QrIcon, KeyboardIcon } from '@/components/Icon';
@@ -32,6 +33,9 @@ export default function App() {
   const [now, setNow] = useState(() => Date.now());
   const [addOpen, setAddOpen] = useState(false);
   const [scanStatus, setScanStatus] = useState<ScanStatus>({ kind: 'idle' });
+  // 当前标签页的 host，给菜单里「绑定当前网站」用。null 表示没有
+  // （比如 popup 是从 action 菜单里打开的，没有具体 tab）。
+  const [currentHost, setCurrentHost] = useState<string | null>(null);
 
   // 初次加载 + 监听跨设备 / 跨 popup 的变更
   useEffect(() => {
@@ -56,6 +60,29 @@ export default function App() {
     return () => window.clearInterval(id);
   }, []);
 
+  // 拿当前 tab 的 host，给 CodeRow 的「绑定当前网站」菜单用
+  useEffect(() => {
+    let cancelled = false;
+    void browser.tabs
+      .query({ active: true, lastFocusedWindow: true })
+      .then((tabs) => {
+        if (cancelled) return;
+        const url = tabs[0]?.url;
+        try {
+          const host = url ? new URL(url).host : '';
+          setCurrentHost(host || null);
+        } catch {
+          setCurrentHost(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentHost(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleCopy = useCallback(async (account: Account) => {
     const { code } = await import('@/lib/totp').then((m) =>
       m.generateCode(account, Date.now()),
@@ -73,6 +100,23 @@ export default function App() {
   const handleDelete = useCallback(async (account: Account) => {
     await vault.remove(account.id);
   }, []);
+
+  const handleBindDomain = useCallback(
+    async (account: Account, domain: string) => {
+      if (account.domains.includes(domain)) return;
+      await vault.update(account.id, { domains: [...account.domains, domain] });
+    },
+    [],
+  );
+
+  const handleUnbindDomain = useCallback(
+    async (account: Account, domain: string) => {
+      await vault.update(account.id, {
+        domains: account.domains.filter((d) => d !== domain),
+      });
+    },
+    [],
+  );
 
   const handleMove = useCallback(
     async (account: Account, direction: 'up' | 'down') => {
@@ -98,23 +142,21 @@ export default function App() {
       if (!tab?.id || tab.windowId === undefined) {
         throw new Error('popup 找不到当前标签页');
       }
-      const res = await browser.runtime.sendMessage({
+      // 先发请求，再立刻关掉 popup —— 整个扫描流程由 content script 接管，
+      // 用户在页面里框选就行。popup 关掉后 activeTab 权限仍然有效，
+      // captureVisibleTab 也能照常工作。
+      const res = browser.runtime.sendMessage({
         type: 'm2-scan-qr',
         tabId: tab.id,
         windowId: tab.windowId,
       });
-      const r = res as { ok?: boolean; error?: string } | undefined;
-      if (!r?.ok) throw new Error(r?.error ?? '后台无响应');
-      // 注入成功 —— 后续流程由 qrselect.content 自己驱动：
-      //   拖拽 → 截屏 → 解码 → 确认卡片 → 入库
-      // popup 这里只需要等用户关掉浮层。给一个短暂的"已就绪"提示即可。
-      setScanStatus({ kind: 'done' });
+      void res; // 不等响应 —— 关 popup
+      window.close();
     } catch (err) {
       setScanStatus({
         kind: 'error',
         message: err instanceof Error ? err.message : String(err),
       });
-    } finally {
       window.setTimeout(() => setScanStatus({ kind: 'idle' }), 1500);
     }
   }, []);
@@ -134,28 +176,47 @@ export default function App() {
 
   const scanning = scanStatus.kind === 'working';
 
+  /**
+   * 把命中当前 host 的账号提到顶部，其余保持 index 原顺序。
+   * 这里不复用 vault.reorder —— 那会持久化到 storage.sync，对一个
+   * 临时视图排序来说代价太高。viewed 顺序只在这一份 accounts 上生效。
+   */
+  const sortedAccounts = useMemo(() => {
+    if (!currentHost) return accounts;
+    const hit: Account[] = [];
+    const rest: Account[] = [];
+    for (const a of accounts) {
+      if (anyMatch(currentHost, a.domains).hit) hit.push(a);
+      else rest.push(a);
+    }
+    return [...hit, ...rest];
+  }, [accounts, currentHost]);
+
   return (
     <div className={styles.root}>
       <Header />
 
       <div className={styles.list} role="list">
-        {accounts.length === 0 ? (
+        {sortedAccounts.length === 0 ? (
           <div className={styles.empty}>
             <p className={styles.emptyTitle}>{t('popupEmpty')}</p>
             <p className={styles.emptyHint}>{t('popupEmptyHint')}</p>
           </div>
         ) : (
-          accounts.map((account, i) => (
+          sortedAccounts.map((account, i) => (
             <CodeRow
               key={account.id}
               account={account}
               now={now}
               isFirst={i === 0}
-              isLast={i === accounts.length - 1}
+              isLast={i === sortedAccounts.length - 1}
+              currentHost={currentHost}
               onCopy={handleCopy}
               onDelete={handleDelete}
               onMoveUp={(a) => void handleMove(a, 'up')}
               onMoveDown={(a) => void handleMove(a, 'down')}
+              onBindDomain={(a, d) => void handleBindDomain(a, d)}
+              onUnbindDomain={(a, d) => void handleUnbindDomain(a, d)}
             />
           ))
         )}

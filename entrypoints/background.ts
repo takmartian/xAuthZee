@@ -45,27 +45,44 @@ interface SaveDraft {
 }
 
 export default defineBackground(() => {
-  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const req = message as AnyRequest | undefined;
     if (!req) return;
 
     switch (req.type) {
       case 'm2-scan-qr':
-        handleInject(req.tabId).then(sendResponse).catch(reportError(sendResponse));
+        console.info('[XAuthZee] bg: inject request tabId=', req.tabId);
+        handleInject(req.tabId).then((r) => {
+          console.info('[XAuthZee] bg: inject ok');
+          sendResponse(r);
+        }).catch(reportError(sendResponse, 'inject'));
         return true;
       case 'm2-qrselect-region':
-        handleCapture(req.windowId).then(sendResponse).catch(reportError(sendResponse));
+        // 不再信任请求里的 windowId —— content script 发请求时 sender.tab
+        // 才是权威来源。sender.tab.id / sender.tab.windowId 在 popup 关闭
+        // 之后依然有效，因为 onMessage 的 sender 是 Chrome 自己注入的。
+        const winId = sender.tab?.windowId;
+        const tabId = sender.tab?.id;
+        console.info('[XAuthZee] bg: capture from sender tabId=', tabId, 'windowId=', winId);
+        if (winId === undefined) {
+          sendResponse({ ok: false, error: 'no sender window' });
+          return false;
+        }
+        handleCapture(winId).then((r) => {
+          console.info('[XAuthZee] bg: capture ok', r.captureWidth, 'x', r.captureHeight);
+          sendResponse(r);
+        }).catch(reportError(sendResponse, 'capture'));
         return true;
       case 'm2-qrselect-save':
-        handleSave(req.draft).then(sendResponse).catch(reportError(sendResponse));
+        handleSave(req.draft).then(sendResponse).catch(reportError(sendResponse, 'save'));
         return true;
     }
   });
 });
 
-function reportError(sendResponse: (r: unknown) => void) {
+function reportError(sendResponse: (r: unknown) => void, tag: string) {
   return (err: unknown) => {
-    console.error('[XAuthZee] background error', err);
+    console.error(`[XAuthZee] bg: ${tag} error`, err);
     sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
   };
 }

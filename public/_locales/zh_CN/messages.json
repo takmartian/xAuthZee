@@ -84,5 +84,59 @@
   },
   "rowReorderDown": {
     "message": "下移"
+  },
+  "rowMore": {
+    "message": "更多",
+    "description": "打开行尾菜单，用于绑定等操作"
+  },
+  "rowMenuBindExact": {
+    "message": "精确匹配",
+    "description": "仅绑定当前 host，不覆盖子域"
+  },
+  "rowMenuBindRegistrable": {
+    "message": "含子域名",
+    "description": "绑定 registrable 域名，自动覆盖子域"
+  },
+  "rowMenuBindShared": {
+    "message": "共享域名",
+    "description": "共享托管域名 —— 为安全只精确匹配"
+  },
+  "rowMenuUnbind": {
+    "message": "解绑 $HOST$",
+    "description": "解除该 host 的绑定",
+    "placeholders": {
+      "host": {
+        "content": "$1",
+        "example": "github.com"
+      }
+    }
+  },
+  "rowMenuUnbindTitle": {
+    "message": "删除这条绑定",
+    "description": "对之前绑定的其他域名的解绑操作 tooltip"
+  },
+  "rowMenuRemove": {
+    "message": "删除"
+  },
+  "rowMenuNoHost": {
+    "message": "请先打开一个网页再绑定当前网站。",
+    "description": "拿不到当前 tab host 时菜单里的提示"
+  },
+  "rowMenuNoCandidates": {
+    "message": "已经绑过这个网站了。",
+    "description": "当前 host 已经在该账号的绑定里时显示"
+  },
+  "optionsBindingsTitle": {
+    "message": "域名绑定",
+    "description": "设置页中域名绑定管理区域的标题"
+  },
+  "optionsBindingsSubtitle": {
+    "message": "绑定了某个域名的账号，在该域名打开 popup 时会排到最上面。共享托管域名（如 github.io）只走精确匹配。"
+  },
+  "optionsBindingsEmpty": {
+    "message": "还没有任何绑定。点 popup 行的 ⋯ 菜单可以绑定当前网站。"
+  },
+  "optionsBindingsRemove": {
+    "message": "删除这条绑定"
   }
 }

@@ -164,3 +164,80 @@
     opacity: 0;
   }
 }
+
+/* ---------- 行菜单 ---------- */
+
+.menuWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu {
+  position: absolute;
+  top: 26px;
+  right: 0;
+  z-index: 1000;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 4px;
+  background: var(--xz-bg);
+  border: 1px solid var(--xz-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--xz-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: var(--xz-bg-subtle);
+}
+
+.menuItemDanger .menuItemDomain {
+  color: var(--xz-danger);
+}
+
+.menuItemDomain {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menuItemMode {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  color: var(--xz-text-dim);
+  letter-spacing: 0.2px;
+}
+
+.menuDivider {
+  height: 1px;
+  background: var(--xz-border);
+  margin: 4px 2px;
+}
+
+.menuHint {
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: var(--xz-text-dim);
+  line-height: 1.4;
+}
