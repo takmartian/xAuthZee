@@ -17,11 +17,15 @@ import assert from 'node:assert/strict';
 import { deriveKey, PBKDF2_ITER, randomSalt } from '../lib/crypto.ts';
 import {
   buildExportPayload,
+  buildEncryptedExport,
   serializeExport,
+  serializeEncryptedExport,
   parseExport,
+  decryptExportPayload,
   applyImport,
   EXPORT_SCHEMA_VERSION,
   EXPORT_SCHEMA_NAME,
+  EXPORT_SCHEMA_NAME_ENCRYPTED,
   type ExportPayload,
 } from '../lib/transfer.ts';
 import { DEFAULT_PREFS, type Account, type Prefs } from '../lib/model.ts';
@@ -289,5 +293,73 @@ describe('applyImport × 错误账号', () => {
     assert.equal(r.errors[0]!.id, 'bad');
     assert.equal(r.added.length, 1);
     assert.equal(r.added[0], 'good');
+  });
+});
+
+describe('加密导出', () => {
+  test('buildEncryptedExport 不含明文 secret', async () => {
+    const plain = buildExportPayload([makeAccount({ id: 'sec1', secret: 'JBSWY3DPEHPK3PXP' })], DEFAULT_PREFS);
+    const enc = await buildEncryptedExport(plain, 'mypassword');
+    assert.equal(enc.schema, EXPORT_SCHEMA_NAME_ENCRYPTED);
+    assert.equal(enc.kdf.name, 'PBKDF2-SHA256');
+    assert.equal(enc.kdf.iter, PBKDF2_ITER);
+    // 序列化结果里**不**应该出现明文 secret
+    const text = serializeEncryptedExport(enc);
+    assert.ok(!text.includes('JBSWY3DPEHPK3PXP'), '明文 secret 必须不出现在序列化结果里');
+  });
+
+  test('正确密码 roundtrip', async () => {
+    const plain = buildExportPayload(
+      [makeAccount({ id: 'a1', secret: 'JBSWY3DPEHPK3PXP' }), makeAccount({ id: 'a2' })],
+      makePrefs({ lockMinutes: 30 }),
+    );
+    const enc = await buildEncryptedExport(plain, 'correctpw');
+    const r = await decryptExportPayload(enc, 'correctpw');
+    assert.equal(r.errors.length, 0);
+    assert.ok(r.payload);
+    assert.deepEqual(r.payload!.accounts, plain.accounts);
+    assert.equal(r.payload!.prefs.lockMinutes, 30);
+  });
+
+  test('错密码 → wrong_password 错误', async () => {
+    const plain = buildExportPayload([makeAccount()], DEFAULT_PREFS);
+    const enc = await buildEncryptedExport(plain, 'right');
+    const r = await decryptExportPayload(enc, 'wrong');
+    assert.equal(r.payload, null);
+    assert.equal(r.errors[0]!.code, 'wrong_password');
+  });
+
+  test('密文结构错（kdf 缺失） → parseExport 错误', () => {
+    const r = parseExport(JSON.stringify({
+      schema: EXPORT_SCHEMA_NAME_ENCRYPTED,
+      version: 1,
+      exportedAt: NOW_ISO,
+      app: { name: 'XAuthZee', version: '0.1.0' },
+      iv: 'x',
+      ciphertext: 'y',
+    }));
+    assert.equal(r.encrypted, null);
+    assert.ok(r.errors.length > 0);
+  });
+
+  test('schema 错（既不是 plain 也不是 encrypted）→ wrong_schema', () => {
+    const r = parseExport(JSON.stringify({ schema: 'other', version: 1, exportedAt: NOW_ISO, app: { name: 'XAuthZee' } }));
+    assert.equal(r.payload, null);
+    assert.equal(r.encrypted, null);
+    assert.equal(r.errors[0]!.code, 'wrong_schema');
+  });
+
+  test('parseExport 自动分发：明文 → payload，密文 → encrypted', async () => {
+    const plain = buildExportPayload([makeAccount()], DEFAULT_PREFS);
+    const enc = await buildEncryptedExport(plain, 'pw');
+
+    const r1 = parseExport(serializeExport(plain));
+    assert.ok(r1.payload);
+    assert.equal(r1.encrypted, null);
+
+    const r2 = parseExport(serializeEncryptedExport(enc));
+    assert.equal(r2.payload, null);
+    assert.ok(r2.encrypted);
+    assert.equal(r2.encrypted!.schema, EXPORT_SCHEMA_NAME_ENCRYPTED);
   });
 });

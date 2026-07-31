@@ -307,8 +307,41 @@
   "optionsImportButton": {
     "message": "Import from file"
   },
-  "optionsExportConfirmMsg": {
-    "message": "Master password encryption is enabled. The export will contain plaintext secrets — anyone with the file can use them. Please store it safely."
+  "optionsExportChooseMode": {
+    "message": "Choose export format:"
+  },
+  "optionsExportModePlain": {
+    "message": "Plain JSON (secrets are readable)"
+  },
+  "optionsExportModeEncrypted": {
+    "message": "Encrypted (password-protected file)"
+  },
+  "optionsExportPasswordIntro": {
+    "message": "Set an export password. The same password will be required to decrypt the file on import."
+  },
+  "optionsExportPasswordLabel": {
+    "message": "Export password"
+  },
+  "optionsExportPasswordConfirmLabel": {
+    "message": "Confirm"
+  },
+  "optionsExportPasswordTooShort": {
+    "message": "Password must be at least 4 characters"
+  },
+  "optionsImportPasswordIntro": {
+    "message": "This is an encrypted export. Enter the password set during export."
+  },
+  "optionsImportPasswordLabel": {
+    "message": "Export password"
+  },
+  "optionsImportPasswordEmpty": {
+    "message": "Please enter a password"
+  },
+  "optionsImportWrongPassword": {
+    "message": "Wrong password or corrupted file"
+  },
+  "addDialogOk": {
+    "message": "OK"
   },
   "optionsImportPreview": {
     "message": "File has $TOTAL$ accounts: $NEW$ new and $OVERLAP$ with IDs that already exist.",

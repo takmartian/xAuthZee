@@ -18,11 +18,14 @@
 
 import { isEncryptedSecret, migrateSecret } from './secrets.ts';
 import { normalizeDraft, type Account, type Prefs } from './model.ts';
+import { deriveKey, encrypt, decrypt, PBKDF2_ITER, bytesToB64, b64ToBytes, randomSalt } from './crypto.ts';
 import pkg from '../package.json' with { type: 'json' };
 
 /** 导出文件 schema 版本。改了格式要 +1，让导入端做迁移。 */
 export const EXPORT_SCHEMA_VERSION = 1;
 export const EXPORT_SCHEMA_NAME = 'xauthzee-accounts';
+/** 加密导出的 schema。区分点是顶层 `schema` 字段。 */
+export const EXPORT_SCHEMA_NAME_ENCRYPTED = 'xauthzee-encrypted-export';
 
 export interface ExportPayload {
   version: 1;
@@ -31,6 +34,25 @@ export interface ExportPayload {
   app: { name: 'XAuthZee'; version: string };
   accounts: Account[];
   prefs: Prefs;
+}
+
+/**
+ * 加密导出的外层结构。
+ *
+ * 设计选择：
+ *   - **不嵌入明文 payload**——避免「加密文件也能当明文读」造成混淆。
+ *   - KDF 参数（iter）每次可不同（未来调 iter 不破坏向后兼容）。
+ *   - 整个 inner plain payload 是 `JSON.stringify(plain)`，按字节加密：
+ *     解密后是字符串，再 `JSON.parse` 进 ExportPayload 走原路径。
+ */
+export interface EncryptedExportPayload {
+  version: 1;
+  schema: typeof EXPORT_SCHEMA_NAME_ENCRYPTED;
+  exportedAt: string;
+  app: { name: 'XAuthZee'; version: string };
+  kdf: { name: 'PBKDF2-SHA256'; iter: number; salt: string };
+  iv: string;
+  ciphertext: string;
 }
 
 export type ImportMode = 'merge' | 'overwrite' | 'skip';
@@ -52,10 +74,14 @@ export type TransferError =
   | 'wrong_version'
   | 'missing_field'
   | 'wrong_type'
-  | 'invalid_account';
+  | 'invalid_account'
+  | 'wrong_password';
 
 export interface ParseResult {
+  /** 明文 schema 解析结果；密文 schema 或解析失败时为 null */
   payload: ExportPayload | null;
+  /** 密文 schema 解析结果；明文 schema 或解析失败时为 null */
+  encrypted: EncryptedExportPayload | null;
   errors: Array<{ code: TransferError; message: string }>;
 }
 
@@ -93,20 +119,36 @@ export function serializeExport(payload: ExportPayload): string {
   return JSON.stringify(payload, null, 2);
 }
 
+/** 加密 payload 序列化：与明文用同样的缩进风格 */
+export function serializeEncryptedExport(payload: EncryptedExportPayload): string {
+  return JSON.stringify(payload, null, 2);
+}
+
 /**
  * 触发浏览器下载。文件名前缀固定为 xauthzee-export-，后面跟本地时
  * 间戳到分钟：人类可读 + 按时间排序友好。
+ *
+ * 加密文件加 `-encrypted` 后缀，让用户一眼区分。下载用 application/json
+ * 即可——内容是 base64 字段，不存在执行风险。
  */
 export function downloadExport(payload: ExportPayload, filename?: string): void {
+  downloadText(serializeExport(payload), filename ?? defaultExportFilename(false));
+}
+
+/** 加密导出下载。文件末尾追加 `-encrypted`。 */
+export function downloadEncryptedExport(payload: EncryptedExportPayload, filename?: string): void {
+  downloadText(serializeEncryptedExport(payload), filename ?? defaultExportFilename(true));
+}
+
+function downloadText(text: string, filename: string): void {
   if (typeof document === 'undefined' || typeof URL === 'undefined') {
-    throw new Error('downloadExport requires a browser environment');
+    throw new Error('downloadText requires a browser environment');
   }
-  const text = serializeExport(payload);
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename ?? defaultExportFilename();
+  a.download = filename;
   document.body.append(a);
   a.click();
   a.remove();
@@ -114,13 +156,79 @@ export function downloadExport(payload: ExportPayload, filename?: string): void 
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function defaultExportFilename(): string {
+function defaultExportFilename(encrypted: boolean): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
   const stamp =
     `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
     `-${pad(d.getHours())}${pad(d.getMinutes())}`;
-  return `xauthzee-export-${stamp}.json`;
+  return encrypted
+    ? `xauthzee-export-${stamp}-encrypted.json`
+    : `xauthzee-export-${stamp}.json`;
+}
+
+// ------------------------------------------------------------ 加密导出
+
+/**
+ * 把明文 payload 包成加密结构。
+ *
+ * 加密的是 `serializeExport(plain)` 的字符串本身，所以解密后直接
+ * `JSON.parse` 就能回到原 ExportPayload（走 parseExport 一样的字段校验）。
+ *
+ * salt 每次随机——PBKDF2 推荐做法，避免两份文件用同样 salt 让攻击者
+ * 同时字典攻击。
+ */
+export async function buildEncryptedExport(
+  plain: ExportPayload,
+  password: string,
+): Promise<EncryptedExportPayload> {
+  const salt = randomSalt();
+  const key = await deriveKey(password, salt, PBKDF2_ITER);
+  const { iv, ciphertext } = await encrypt(serializeExport(plain), key);
+  return {
+    version: EXPORT_SCHEMA_VERSION,
+    schema: EXPORT_SCHEMA_NAME_ENCRYPTED,
+    exportedAt: plain.exportedAt,
+    app: { name: 'XAuthZee', version: pkg.version },
+    kdf: { name: 'PBKDF2-SHA256', iter: PBKDF2_ITER, salt: bytesToB64(salt) },
+    iv,
+    ciphertext,
+  };
+}
+
+/**
+ * 把加密 payload 用密码解出明文 payload。
+ *
+ * 错密码 / 篡改密文 / 字段错都通过 errors 数组返回，**不抛错**。AES-GCM
+ * 自身会校验 auth tag，所以错密码直接抛 OperationError，我们翻译成
+ * `wrong_password` 错误码。
+ */
+export async function decryptExportPayload(
+  enc: EncryptedExportPayload,
+  password: string,
+): Promise<{ payload: ExportPayload | null; errors: ParseResult['errors'] }> {
+  try {
+    const salt = b64ToBytes(enc.kdf.salt);
+    const key = await deriveKey(password, salt, enc.kdf.iter);
+    const innerJson = await decrypt(enc.iv, enc.ciphertext, key);
+    // 用 parseExport 一样的字段校验；这样内层 payload 字段错也能被抓到
+    const inner = parseExport(innerJson);
+    if (inner.errors.length || !inner.payload) {
+      return { payload: null, errors: inner.errors };
+    }
+    return { payload: inner.payload, errors: [] };
+  } catch (e) {
+    // AES-GCM 错 key / 篡改 都抛 OperationError → "wrong_password" 是最贴切的解释
+    return {
+      payload: null,
+      errors: [
+        {
+          code: 'wrong_password',
+          message: e instanceof Error ? e.message : '解密失败',
+        },
+      ],
+    };
+  }
 }
 
 // ------------------------------------------------------------ 解析
@@ -128,27 +236,57 @@ function defaultExportFilename(): string {
 const ALGOS = new Set(['SHA1', 'SHA256', 'SHA512']);
 
 /**
- * 解析 JSON 文本，校验 schema。不抛错——所有错误收集到 errors 数组。
+ * 解析 JSON 文本，自动识别明文 / 密文 schema。
+ *
+ * 行为：
+ *   - 顶层 `schema` 字段是 `xauthzee-accounts` → 校验明文字段、返回 plain payload
+ *   - 顶层 `schema` 字段是 `xauthzee-encrypted-export` → 校验密文字段、返回 encrypted
+ *   - 都不匹配 → 错误
+ *   - 任何错误都进 `errors` 数组，不抛错
+ *
+ * 拿到 encrypted 后 UI 弹密码输入框再调 `decryptExportPayload`。
  */
 export function parseExport(text: string): ParseResult {
-  const errors: ParseResult['errors'] = [];
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch (e) {
     return {
       payload: null,
+      encrypted: null,
       errors: [
         { code: 'not_json', message: e instanceof Error ? e.message : 'invalid JSON' },
       ],
     };
   }
   if (!isObject(raw)) {
-    return { payload: null, errors: [{ code: 'wrong_type', message: 'root must be object' }] };
+    return {
+      payload: null,
+      encrypted: null,
+      errors: [{ code: 'wrong_type', message: 'root must be object' }],
+    };
   }
-  if (raw['schema'] !== EXPORT_SCHEMA_NAME) {
-    errors.push({ code: 'wrong_schema', message: `schema 必须是 ${EXPORT_SCHEMA_NAME}` });
+  const schema = raw['schema'];
+  if (schema === EXPORT_SCHEMA_NAME) {
+    return parsePlainExport(raw);
   }
+  if (schema === EXPORT_SCHEMA_NAME_ENCRYPTED) {
+    return parseEncryptedExportJson(raw);
+  }
+  return {
+    payload: null,
+    encrypted: null,
+    errors: [
+      {
+        code: 'wrong_schema',
+        message: `schema 必须是 ${EXPORT_SCHEMA_NAME} 或 ${EXPORT_SCHEMA_NAME_ENCRYPTED}`,
+      },
+    ],
+  };
+}
+
+function parsePlainExport(raw: Record<string, unknown>): ParseResult {
+  const errors: ParseResult['errors'] = [];
   if (raw['version'] !== EXPORT_SCHEMA_VERSION) {
     errors.push({ code: 'wrong_version', message: `version 必须是 ${EXPORT_SCHEMA_VERSION}` });
   }
@@ -160,11 +298,10 @@ export function parseExport(text: string): ParseResult {
     errors.push({ code: 'missing_field', message: 'app.name 必须是 XAuthZee' });
   }
   if (!Array.isArray(raw['accounts'])) {
-    errors.push({ payload: null, errors: [...errors, { code: 'wrong_type', message: 'accounts 必须是数组' }] } as never);
+    errors.push({ code: 'wrong_type', message: 'accounts 必须是数组' });
   }
-  // schema 顶层有错就放弃解析（避免半生不熟的 payload 进入应用层）
   if (errors.length > 0) {
-    return { payload: null, errors };
+    return { payload: null, encrypted: null, errors };
   }
 
   const accountsRaw = raw['accounts'] as unknown[];
@@ -178,11 +315,15 @@ export function parseExport(text: string): ParseResult {
     }
   }
   if (errors.length > 0) {
-    return { payload: null, errors };
+    return { payload: null, encrypted: null, errors };
   }
   const prefs = parsePrefs(raw['prefs']);
   if (typeof prefs === 'string') {
-    return { payload: null, errors: [{ code: 'missing_field', message: `prefs: ${prefs}` }] };
+    return {
+      payload: null,
+      encrypted: null,
+      errors: [{ code: 'missing_field', message: `prefs: ${prefs}` }],
+    };
   }
   return {
     payload: {
@@ -192,6 +333,57 @@ export function parseExport(text: string): ParseResult {
       app: { name: 'XAuthZee', version: (app as Record<string, unknown>)['version'] as string },
       accounts,
       prefs,
+    },
+    encrypted: null,
+    errors: [],
+  };
+}
+
+function parseEncryptedExportJson(raw: Record<string, unknown>): ParseResult {
+  const errors: ParseResult['errors'] = [];
+  if (raw['version'] !== EXPORT_SCHEMA_VERSION) {
+    errors.push({ code: 'wrong_version', message: `version 必须是 ${EXPORT_SCHEMA_VERSION}` });
+  }
+  if (typeof raw['exportedAt'] !== 'string') {
+    errors.push({ code: 'missing_field', message: 'exportedAt 必须是字符串' });
+  }
+  const app = raw['app'];
+  if (!isObject(app) || app['name'] !== 'XAuthZee') {
+    errors.push({ code: 'missing_field', message: 'app.name 必须是 XAuthZee' });
+  }
+  const kdf = raw['kdf'];
+  if (!isObject(kdf) || kdf['name'] !== 'PBKDF2-SHA256') {
+    errors.push({ code: 'missing_field', message: 'kdf.name 必须是 PBKDF2-SHA256' });
+  }
+  if (isObject(kdf) && typeof kdf['iter'] !== 'number') {
+    errors.push({ code: 'missing_field', message: 'kdf.iter 必须是数字' });
+  }
+  if (isObject(kdf) && typeof kdf['salt'] !== 'string') {
+    errors.push({ code: 'missing_field', message: 'kdf.salt 必须是字符串' });
+  }
+  if (typeof raw['iv'] !== 'string') {
+    errors.push({ code: 'missing_field', message: 'iv 必须是字符串' });
+  }
+  if (typeof raw['ciphertext'] !== 'string') {
+    errors.push({ code: 'missing_field', message: 'ciphertext 必须是字符串' });
+  }
+  if (errors.length > 0) {
+    return { payload: null, encrypted: null, errors };
+  }
+  return {
+    payload: null,
+    encrypted: {
+      version: EXPORT_SCHEMA_VERSION,
+      schema: EXPORT_SCHEMA_NAME_ENCRYPTED,
+      exportedAt: raw['exportedAt'] as string,
+      app: { name: 'XAuthZee', version: (app as Record<string, unknown>)['version'] as string },
+      kdf: {
+        name: 'PBKDF2-SHA256',
+        iter: (kdf as Record<string, unknown>)['iter'] as number,
+        salt: (kdf as Record<string, unknown>)['salt'] as string,
+      },
+      iv: raw['iv'] as string,
+      ciphertext: raw['ciphertext'] as string,
     },
     errors: [],
   };

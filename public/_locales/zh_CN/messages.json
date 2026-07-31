@@ -307,8 +307,41 @@
   "optionsImportButton": {
     "message": "从文件导入"
   },
-  "optionsExportConfirmMsg": {
-    "message": "检测到当前为主密码加密态。导出的文件将是明文 secret —— 任何人拿到文件都能用。请确认文件存放位置安全。"
+  "optionsExportChooseMode": {
+    "message": "选择导出格式："
+  },
+  "optionsExportModePlain": {
+    "message": "明文 JSON（secret 可直接读）"
+  },
+  "optionsExportModeEncrypted": {
+    "message": "加密（用导出密码，文件本身安全）"
+  },
+  "optionsExportPasswordIntro": {
+    "message": "设置一个导出密码。导入时需要输入同样的密码才能解密文件。"
+  },
+  "optionsExportPasswordLabel": {
+    "message": "导出密码"
+  },
+  "optionsExportPasswordConfirmLabel": {
+    "message": "再输一次"
+  },
+  "optionsExportPasswordTooShort": {
+    "message": "密码至少 4 位"
+  },
+  "optionsImportPasswordIntro": {
+    "message": "这是一个加密的导出文件。请输入导出时设置的密码。"
+  },
+  "optionsImportPasswordLabel": {
+    "message": "导出密码"
+  },
+  "optionsImportPasswordEmpty": {
+    "message": "请输入密码"
+  },
+  "optionsImportWrongPassword": {
+    "message": "密码错误或文件已损坏"
+  },
+  "addDialogOk": {
+    "message": "确定"
   },
   "optionsImportPreview": {
     "message": "文件含 $TOTAL$ 个账号：$NEW$ 个新、$OVERLAP$ 个 id 与现有重复。",
