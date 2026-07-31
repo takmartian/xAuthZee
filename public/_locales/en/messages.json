@@ -76,6 +76,14 @@
   "rowCopied": {
     "message": "Copied"
   },
+  "rowFilled": {
+    "message": "Filled",
+    "description": "Toast shown when a code was auto-filled into a focused OTP input"
+  },
+  "rowFailed": {
+    "message": "Failed",
+    "description": "Toast shown when neither auto-fill nor clipboard copy succeeded"
+  },
   "rowDelete": {
     "message": "Remove"
   },

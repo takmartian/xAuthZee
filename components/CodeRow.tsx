@@ -7,13 +7,16 @@ import { Ring } from './Ring';
 import { MoreIcon } from './Icon';
 import styles from './CodeRow.module.css';
 
+/** 行点击结果 —— 决定右上角 toast 显示什么文案 */
+export type CopyResult = 'filled' | 'copied' | 'failed';
+
 export interface CodeRowProps {
   account: Account;
   /** 当前时间（毫秒），由父组件每帧重算并传入 —— 倒计时环靠这个更新 */
   now: number;
   /** 当前 tab 的 host，null 表示拿不到（菜单里「绑定当前网站」会变成只读提示） */
   currentHost: string | null;
-  onCopy: (account: Account) => void;
+  onCopy: (account: Account) => Promise<CopyResult>;
   onDelete: (account: Account) => void;
   /** 绑一个域名到账号（追加去重） */
   onBindDomain: (account: Account, domain: string) => void;
@@ -30,16 +33,22 @@ function CodeRowInner({
   onBindDomain,
   onUnbindDomain,
 }: CodeRowProps) {
-  const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<'filled' | 'copied' | 'failed' | null>(null);
 
   const { code, progress, secondsRemaining } = generateCode(account, now);
   // 周期即将结束时给个明显颜色提示 —— TOTP 倒计时环通常用红色
   const expiring = secondsRemaining <= 3;
 
-  const handleClick = () => {
-    onCopy(account);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+  const handleClick = async () => {
+    const result = await onCopy(account);
+    if (result === 'filled') {
+      setToast('filled');
+    } else if (result === 'copied') {
+      setToast('copied');
+    } else {
+      setToast('failed');
+    }
+    window.setTimeout(() => setToast(null), 1200);
   };
 
   // 排版规则：issuer 作粗体标题，label 作灰色副标。
@@ -94,7 +103,21 @@ function CodeRowInner({
         />
       </div>
 
-      {copied && <div className={styles.copiedToast}>{t('rowCopied')}</div>}
+      {toast && (
+        <div
+          className={`${styles.copiedToast} ${
+            toast === 'filled'
+              ? styles.toastFilled
+              : toast === 'failed'
+                ? styles.toastFailed
+                : ''
+          }`}
+        >
+          {toast === 'filled' && t('rowFilled')}
+          {toast === 'copied' && t('rowCopied')}
+          {toast === 'failed' && t('rowFailed')}
+        </div>
+      )}
     </div>
   );
 }

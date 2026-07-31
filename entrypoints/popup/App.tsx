@@ -4,7 +4,7 @@ import { t } from '@/lib/i18n';
 import { vault, watchVault } from '@/lib/storage';
 import type { Account } from '@/lib/model';
 import { anyMatch } from '@/lib/domain';
-import { CodeRow } from '@/components/CodeRow';
+import { CodeRow, type CopyResult } from '@/components/CodeRow';
 import { AddDialog } from '@/components/AddDialog';
 import { QrIcon, KeyboardIcon, SearchIcon } from '@/components/Icon';
 import styles from './App.module.css';
@@ -86,13 +86,12 @@ export default function App() {
     };
   }, []);
 
-  const handleCopy = useCallback(async (account: Account) => {
+  const handleCopy = useCallback(async (account: Account): Promise<CopyResult> => {
     const { code } = await import('@/lib/totp').then((m) =>
       m.generateCode(account, Date.now()),
     );
 
     // 1) 优先尝试直接填到当前 tab 上次聚焦的 OTP 输入框
-    let filled = false;
     try {
       const tabs = await browser.tabs.query({ active: true, lastFocusedWindow: true });
       const tab = tabs[0];
@@ -101,19 +100,18 @@ export default function App() {
           type: 'otpfill:fill',
           accountId: account.id,
         })) as { ok?: boolean; error?: string } | undefined;
-        if (res?.ok) filled = true;
+        if (res?.ok) return 'filled';
       }
     } catch {
       // content script 没装、tab 不是 http(s)、权限被拒等都到这里
     }
 
-    if (filled) return;
-
     // 2) 兜底：复制到剪贴板
     try {
       await navigator.clipboard.writeText(code);
+      return 'copied';
     } catch {
-      /* 静默 */
+      return 'failed';
     }
   }, []);
 

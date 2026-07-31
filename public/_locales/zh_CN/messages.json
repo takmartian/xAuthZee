@@ -76,6 +76,14 @@
   "rowCopied": {
     "message": "已复制"
   },
+  "rowFilled": {
+    "message": "已填充",
+    "description": "点击行后验证码被自动填到当前 OTP 输入框时显示的 toast"
+  },
+  "rowFailed": {
+    "message": "填充失败",
+    "description": "既没能填充也没能复制到剪贴板时显示的 toast"
+  },
   "rowDelete": {
     "message": "删除"
   },
