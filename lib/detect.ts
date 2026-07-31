@@ -8,19 +8,23 @@
  *     验证码自动填充也用这个）。
  *   - `id` 或 `name` 完全等于 `otp` / `totp` / `2fa` / `mfa`。
  *   - `class` 包含 `otp` / `totp`（不区分大小写）。
+ *   - **maxlength=1 + 4-8 个 maxlength=1 兄弟簇** —— React Aria 等组件库
+ *     经常把每个 OTP 格子裹一层 wrapper，input 自身没任何 id/name/label，
+ *     但 maxlength=1 的紧密簇是独一无二的信号（日期选择器也算 maxlength=1
+ *     但通常不在 4-8 范围内或被其他信号否决）。
  *
  * **二层（关键词命中，可关闭）**：
- *   - `id` / `name` / `aria-label` / `placeholder` / 关联 `<label>` 的文本
- *     命中关键词表：验证码|动态码|OTP|TOTP|2FA|MFA|one-time|security code|
- *     verification code|authenticator。
+ *   - `id` / `name` / `aria-label` / `placeholder` / 关联 `<label>` / 父
+ *     元素 `aria-labelledby` 的文本命中关键词表：验证码|动态码|OTP|TOTP|
+ *     2FA|MFA|one-time|security code|verification code|authenticator。
  *   - 同时命中「反关键词」则排除：coupon|promo|zip|postal|password|hidden|
  *     隐藏|密码|优惠券|邮编。
  *
  * 反关键词是为了避免误伤：不少电商站搜索框叫 "coupon code"、登录密码框
  * 带 "verification" 字样。光看正向关键词命中率很高，但配合反关键词就稳。
  *
- * 六宫格识别：检测一个容器内有 4-8 个 `maxlength=1` 的输入框，整体识别
- * 为六宫格；返回 'six-grid' 让填充逻辑走逐格填入路径。
+ * 六宫格识别：4-8 个 `maxlength=1` 的输入框紧密簇（无论是否各自裹 wrapper）。
+ * 实现上沿父链向上找 —— 直接父只看到 1 个，wrapper 之上才看到 6 个。
  */
 
 export type FieldKind = 'otp' | 'six-grid' | 'none';
@@ -92,7 +96,12 @@ export function detectOtpField(
   if (!input) return 'none';
   if (!isFillableInput(input)) return 'none';
 
-  // 一层命中
+  // 一层命中（maxlength=1 簇也算 —— React Aria 等组件库把每个格子裹一层，
+  // input 自己没任何 id/name/label，但紧密的 maxlength=1 簇是独有的 OTP 信号）
+  if (input.maxLength === 1) {
+    const cluster = findGridCluster(input);
+    if (cluster.length >= 4 && cluster.length <= 8) return 'six-grid';
+  }
   if (matchesLayer1(input)) return classifyShape(input);
 
   // 二层只在偏好打开时走
@@ -175,38 +184,48 @@ function collectTextContext(input: HTMLInputElement): string {
   if (input.id) parts.push(input.id);
   if (input.name) parts.push(input.name);
   if (input.placeholder) parts.push(input.placeholder);
-  if (input.getAttribute('aria-label')) parts.push(input.getAttribute('aria-label')!);
-  if (input.getAttribute('aria-labelledby')) {
-    const labelledBy = document.getElementById(input.getAttribute('aria-labelledby')!);
-    if (labelledBy?.textContent) parts.push(labelledBy.textContent);
+  // aria-label 是直接字符串，不是 ID 引用
+  const ownLabel = input.getAttribute('aria-label');
+  if (ownLabel) parts.push(ownLabel);
+  collectAriaRefs(input, 'aria-labelledby', parts);
+  collectAriaRefs(input, 'aria-describedby', parts);
+
+  // React Aria 等组件库把 aria-labelledby / aria-describedby 挂在包裹 div 上，
+  // 而不是 input 自己。沿父链向上读 1-2 层，把它们的文本也吸进来。
+  let el: HTMLElement | null = input.parentElement;
+  for (let depth = 0; el && depth < 2; depth++) {
+    collectAriaRefs(el, 'aria-labelledby', parts);
+    collectAriaRefs(el, 'aria-describedby', parts);
+    el = el.parentElement;
   }
+
   if (input.labels) {
     for (const label of Array.from(input.labels)) parts.push(label.textContent ?? '');
   }
   return parts.join(' ');
 }
 
+/** 读取元素的 aria-labelledby / aria-describedby 引用的所有节点文本（空格分隔的 ID 列表）。 */
+function collectAriaRefs(el: Element, attr: string, parts: string[]): void {
+  const value = el.getAttribute(attr);
+  if (!value) return;
+  for (const id of value.split(/\s+/)) {
+    if (!id) continue;
+    const ref = document.getElementById(id);
+    if (ref?.textContent) parts.push(ref.textContent);
+  }
+}
+
 /**
  * 单输入框 vs 六宫格。
  *
- * 六宫格：父容器内有 4-8 个 `maxlength=1` 的兄弟 <input>。每个兄弟也都
- * 要走 isFillableInput 校验。
+ * 六宫格：父链向上找，最内层能装下 4-8 个 `maxlength=1` 的 <input> 视为
+ * 六宫格。React Aria 等组件库把每个格子裹一层 wrapper，直接父只看到 1
+ * 个 input，所以要向上找真正的「组容器」。
  */
 function classifyShape(input: HTMLInputElement): FieldKind {
-  // 输入框本身可能就是单格 —— 检查兄弟
-  const parent = input.parentElement;
-  if (!parent) return 'otp';
-  const siblings = Array.from(parent.querySelectorAll('input'));
-  const single = siblings.filter((s) => {
-    if (s === input) return false;
-    if (s.maxLength !== 1) return false;
-    if (s.disabled || s.readOnly) return false;
-    const type = (s.type || 'text').toLowerCase();
-    return ['text', 'tel', 'number', ''].includes(type);
-  });
-  // 自身也算一格；4-8 格的容器视为六宫格
-  const total = single.length + 1;
-  if (total >= 4 && total <= 8) return 'six-grid';
+  const cluster = findGridCluster(input);
+  if (cluster.length >= 4 && cluster.length <= 8) return 'six-grid';
   return 'otp';
 }
 
@@ -215,12 +234,40 @@ function classifyShape(input: HTMLInputElement): FieldKind {
  * 失败时返回空数组（调用方降级为 'otp' 单格处理）。
  */
 export function findGridCells(rootInput: HTMLInputElement): HTMLInputElement[] {
-  const parent = rootInput.parentElement;
-  if (!parent) return [];
-  const all = Array.from(parent.querySelectorAll('input')).filter(
-    (s): s is HTMLInputElement => s instanceof HTMLInputElement,
-  );
-  const cells = all.filter((s) => s.maxLength === 1 && !s.disabled && !s.readOnly);
-  if (cells.length < 4 || cells.length > 8) return [];
-  return cells;
+  const cluster = findGridCluster(rootInput);
+  if (cluster.length >= 4 && cluster.length <= 8) return cluster;
+  return [];
+}
+
+/**
+ * 沿父链向上找 4-8 个 maxlength=1 的输入框簇。
+ *
+ * 1. 直接父只看到自己 → 不是六宫格
+ * 2. wrapper 之上才看到 6 个 → 命中
+ * 3. depth 上限 3 —— 太远的祖先里可能有同名网格（页面里同时存在两套六宫格
+ *    的概率几乎为 0），避免误伤
+ *
+ * 返回的数组按 DOM 顺序，且一定包含 input 本身。
+ */
+function findGridCluster(input: HTMLInputElement): HTMLInputElement[] {
+  let parent: HTMLElement | null = input.parentElement;
+  for (let depth = 0; parent && depth < 3; depth++) {
+    const candidates: HTMLInputElement[] = [];
+    const all = parent.querySelectorAll('input');
+    for (const s of Array.from(all)) {
+      if (
+        s instanceof HTMLInputElement &&
+        s.maxLength === 1 &&
+        !s.disabled &&
+        !s.readOnly
+      ) {
+        candidates.push(s);
+      }
+    }
+    if (candidates.length >= 4 && candidates.length <= 8 && candidates.includes(input)) {
+      return candidates;
+    }
+    parent = parent.parentElement;
+  }
+  return [];
 }

@@ -177,6 +177,81 @@ describe('detectOtpField — six-grid', () => {
     const first = wrap.querySelector('input')!;
     assert.equal(detectOtpField(first, ctx()), 'otp');
   });
+
+  test('React Aria 风格：每个格子裹一层 wrapper，没有 id/name/aria-label 文本信号', () => {
+    // 复刻 FinPass / Keycloak 的 React Aria OTP 结构：
+    //   <hgroup id="r9">Enter OTP</hgroup>
+    //   <div aria-labelledby="r9">         ← 父链第 1 层
+    //     <div>                              ← cell wrapper
+    //       <div aria-labelledby="r9">       ← 父链第 0 层（input 的直接父）
+    //         <input maxlength="1" aria-label=":r8:" />   ← 没有任何 otp 关键词
+    //       </div>
+    //     </div>
+    //     ... × 6
+    //   </div>
+    const heading = document.createElement('hgroup');
+    heading.id = 'r9';
+    heading.textContent = 'Enter OTP';
+    const outer = document.createElement('div');
+    outer.setAttribute('aria-labelledby', 'r9');
+    for (let i = 0; i < 6; i++) {
+      const wrap = document.createElement('div');
+      const inner = document.createElement('div');
+      inner.setAttribute('aria-labelledby', 'r9');
+      const c = document.createElement('input');
+      c.setAttribute('type', 'text');
+      c.setAttribute('maxlength', '1');
+      c.setAttribute('aria-label', ':r8:'); // 跟 React Aria 生成的一样
+      inner.append(c);
+      wrap.append(inner);
+      outer.append(wrap);
+    }
+    document.body.append(heading, outer);
+    const first = outer.querySelector('input')!;
+    assert.equal(detectOtpField(first, ctx()), 'six-grid');
+  });
+
+  test('每个格子裹一层 wrapper 但只有 3 个 → 不是 six-grid', () => {
+    // maxlength=1 簇必须是 4-8，否则不是 OTP 网格
+    const outer = document.createElement('div');
+    for (let i = 0; i < 3; i++) {
+      const wrap = document.createElement('div');
+      const c = document.createElement('input');
+      c.setAttribute('maxlength', '1');
+      wrap.append(c);
+      outer.append(wrap);
+    }
+    document.body.append(outer);
+    const first = outer.querySelector('input')!;
+    assert.equal(detectOtpField(first, ctx()), 'none');
+  });
+});
+
+describe('detectOtpField — layer 2 aria chain', () => {
+  test('父元素 aria-labelledby 指向「Enter OTP」文本 → 命中 layer 2', () => {
+    // React Aria 把 aria-labelledby 挂在包裹 div 上，input 自身没关键词
+    const label = document.createElement('h1');
+    label.id = 'heading-otp';
+    label.textContent = 'Enter OTP';
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('aria-labelledby', 'heading-otp');
+    const el = document.createElement('input');
+    el.setAttribute('type', 'text');
+    wrapper.append(el);
+    document.body.append(label, wrapper);
+    assert.equal(detectOtpField(el, ctx()), 'otp');
+  });
+
+  test('aria-describedby 引用的错误消息也参与匹配', () => {
+    const hint = document.createElement('span');
+    hint.id = 'otp-hint';
+    hint.textContent = 'Please enter your one-time code';
+    const el = document.createElement('input');
+    el.setAttribute('type', 'text');
+    el.setAttribute('aria-describedby', 'otp-hint');
+    document.body.append(hint, el);
+    assert.equal(detectOtpField(el, ctx()), 'otp');
+  });
 });
 
 describe('findGridCells', () => {
@@ -213,5 +288,22 @@ describe('findGridCells', () => {
   test('empty when no grid', () => {
     const el = makeInput({ autocomplete: 'one-time-code', type: 'text' });
     assert.equal(findGridCells(el).length, 0);
+  });
+
+  test('React Aria wrapper：每个 cell 各裹一层也能正确返回 6 个', () => {
+    const outer = document.createElement('div');
+    const cells: HTMLInputElement[] = [];
+    for (let i = 0; i < 6; i++) {
+      const wrap = document.createElement('div');
+      const c = document.createElement('input');
+      c.setAttribute('maxlength', '1');
+      cells.push(c);
+      wrap.append(c);
+      outer.append(wrap);
+    }
+    document.body.append(outer);
+    const found = findGridCells(cells[0]!);
+    assert.equal(found.length, 6);
+    assert.deepEqual(found, cells);
   });
 });
