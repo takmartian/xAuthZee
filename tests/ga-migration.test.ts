@@ -144,7 +144,7 @@ describe('parseGaMigrationData roundtrip', () => {
   test('单条 SHA1 TOTP 6 位', () => {
     const secret = new TextEncoder().encode('JBSWY3DPEHPK3PXP');
     const url = makeMigrationUrl([
-      { secret, name: 'octocat@example.com', issuer: 'GitHub', algorithm: 1, digits: 0, type: 1 },
+      { secret, name: 'octocat@example.com', issuer: 'GitHub', algorithm: 1, digits: 1, type: 2 },
     ]);
     const r = parseGaMigrationUrl(url);
     assert.equal(r.accounts.length, 1);
@@ -155,7 +155,6 @@ describe('parseGaMigrationData roundtrip', () => {
     assert.equal(acc.digits, 6);
     assert.equal(acc.period, 30);
     assert.deepEqual(acc.domains, []);
-    // secret 重新编成 base32 后能解回原 bytes（验证编码无损）
     assert.deepEqual(base32ToBytes(acc.secret), secret);
     assert.equal(r.skipped.length, 0);
     assert.equal(r.total, 1);
@@ -164,7 +163,7 @@ describe('parseGaMigrationData roundtrip', () => {
   test('SHA256 + 8 位 + 显式 issuer 字段', () => {
     const secret = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
     const url = makeMigrationUrl([
-      { secret, name: 'me@example.com', issuer: 'Acme', algorithm: 2, digits: 1, type: 1 },
+      { secret, name: 'me@example.com', issuer: 'Acme', algorithm: 2, digits: 2, type: 2 },
     ]);
     const r = parseGaMigrationUrl(url);
     const acc = r.accounts[0]!;
@@ -177,7 +176,7 @@ describe('parseGaMigrationData roundtrip', () => {
   test('无 issuer 字段，从 name 拆分（"Issuer:account"）', () => {
     const secret = new TextEncoder().encode('ABCDEFGH');
     const url = makeMigrationUrl([
-      { secret, name: 'Google:me@gmail.com', algorithm: 1, digits: 0, type: 1 },
+      { secret, name: 'Google:me@gmail.com', algorithm: 1, digits: 1, type: 2 },
     ]);
     const r = parseGaMigrationUrl(url);
     const acc = r.accounts[0]!;
@@ -188,10 +187,10 @@ describe('parseGaMigrationData roundtrip', () => {
   test('多条混合 + 部分被跳过（HOTP / MD5）', () => {
     const secret = new TextEncoder().encode('JBSWY3DPEHPK3PXP');
     const url = makeMigrationUrl([
-      { secret, name: 'ok1@example.com', issuer: 'OK1', algorithm: 1, digits: 0, type: 1 },
-      { secret, name: 'hotp@example.com', issuer: 'HOTP', algorithm: 1, digits: 0, type: 0 },
-      { secret, name: 'md5@example.com', issuer: 'MD5', algorithm: 4, digits: 0, type: 1 },
-      { secret, name: 'ok2@example.com', issuer: 'OK2', algorithm: 3, digits: 0, type: 1 },
+      { secret, name: 'ok1@example.com', issuer: 'OK1', algorithm: 1, digits: 1, type: 2 },
+      { secret, name: 'hotp@example.com', issuer: 'HOTP', algorithm: 1, digits: 1, type: 1 },
+      { secret, name: 'md5@example.com', issuer: 'MD5', algorithm: 4, digits: 1, type: 2 },
+      { secret, name: 'ok2@example.com', issuer: 'OK2', algorithm: 3, digits: 1, type: 2 },
     ]);
     const r: GaMigrationResult = parseGaMigrationUrl(url);
     assert.equal(r.total, 4);
@@ -207,7 +206,7 @@ describe('parseGaMigrationData roundtrip', () => {
   test('全是 HOTP → no_accounts', () => {
     const secret = new TextEncoder().encode('JBSWY3DPEHPK3PXP');
     const url = makeMigrationUrl([
-      { secret, name: 'hotp1@example.com', algorithm: 1, type: 0 },
+      { secret, name: 'hotp1@example.com', algorithm: 1, type: 1 },
     ]);
     assert.throws(
       () => parseGaMigrationUrl(url),
@@ -218,26 +217,41 @@ describe('parseGaMigrationData roundtrip', () => {
   test('algorithm=0 (UNSPECIFIED) 默认 SHA1', () => {
     const secret = new TextEncoder().encode('JBSWY3DPEHPK3PXP');
     const url = makeMigrationUrl([
-      { secret, name: 'u@example.com', algorithm: 0, digits: 0, type: 1 },
+      { secret, name: 'u@example.com', algorithm: 0, digits: 1, type: 2 },
     ]);
     const r = parseGaMigrationUrl(url);
     assert.equal(r.accounts[0]!.algorithm, 'SHA1');
   });
 
-  test('digits=0 默认 6 位', () => {
+  test('digits=0 (UNSPECIFIED) 默认 6 位', () => {
     const secret = new TextEncoder().encode('JBSWY3DPEHPK3PXP');
     const url = makeMigrationUrl([
-      { secret, name: 'u@example.com', algorithm: 1, digits: 0, type: 1 },
+      { secret, name: 'u@example.com', algorithm: 1, digits: 0, type: 2 },
     ]);
     const r = parseGaMigrationUrl(url);
     assert.equal(r.accounts[0]!.digits, 6);
+  });
+
+  test('真实 GA 导出格式：digits=1=6 位、type=2=TOTP', () => {
+    // 用户反馈：6 位 TOTP 在 GA 里，导过来变 8 位。
+    // 根因：之前把 enum 映射写错。digits=1 才是 6 位，type=2 才是 TOTP。
+    // 这个测试是回归保护 —— 锁定为「真实 GA 字节 → 6 位 TOTP」的映射。
+    const secret = new TextEncoder().encode('JBSWY3DPEHPK3PXP');
+    const url = makeMigrationUrl([
+      // GA 实际写的方式：algorithm=1 (SHA1), digits=1 (6 位), type=2 (TOTP)
+      { secret, name: 'me@example.com', issuer: 'GA-Test', algorithm: 1, digits: 1, type: 2 },
+    ]);
+    const r = parseGaMigrationUrl(url);
+    assert.equal(r.accounts.length, 1);
+    assert.equal(r.accounts[0]!.digits, 6, '6 位 GA 账户必须导入为 6 位');
+    assert.equal(r.accounts[0]!.algorithm, 'SHA1');
   });
 });
 
 describe('parseGaMigrationData base64 容错', () => {
   test('URL-safe base64（带 -_）正常解析', () => {
     const secret = new TextEncoder().encode('JBSWY3DPEHPK3PXP');
-    const url = makeMigrationUrl([{ secret, name: 'me@example.com', algorithm: 1, type: 1 }]);
+    const url = makeMigrationUrl([{ secret, name: 'me@example.com', algorithm: 1, type: 2 }]);
     // url 已经用 URL-safe 编码；提取 data 再直接传 parseGaMigrationData
     const data = url.split('data=')[1]!;
     const r = parseGaMigrationData(data);

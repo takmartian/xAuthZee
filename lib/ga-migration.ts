@@ -17,10 +17,14 @@
  *     string name = 2;
  *     string issuer = 3;
  *     int32 algorithm = 4;  // 0=UNSPECIFIED, 1=SHA1, 2=SHA256, 3=SHA512, 4=MD5
- *     int32 digits = 5;     // 0=6, 1=8
- *     int32 type = 6;       // 0=HOTP, 1=TOTP
+ *     int32 digits = 5;     // 0=UNSPECIFIED, 1=6, 2=8
+ *     int32 type = 6;       // 0=UNSPECIFIED, 1=HOTP, 2=TOTP
  *     int64 counter = 7;
  *   }
+ *
+ * 关键：enum 第一个值是 UNSPECIFIED，protobuf 缺省值就是它。**GA 实际导
+ * 出**对 6 位 TOTP 写的是 digits=1, type=2（不是 0/1）—— 之前的实现把
+ * enum 顺序理解错了，导致 6 位被解析成 8 位。
  *
  * 我们不依赖 protobufjs 这种大库 —— 整个 schema 用不到 100 行手写解
  * 码（HOTP / MD5 直接拒绝，剩余字段就那么几个）。
@@ -94,7 +98,9 @@ export function parseGaMigrationData(b64: string): GaMigrationResult {
   const accounts: Account[] = [];
   const skipped: GaMigrationResult['skipped'] = [];
   for (const p of proto.otp_parameters) {
-    if (p.type === 0) {
+    // enum 0 是 UNSPECIFIED，1=HOTP，2=TOTP。
+    // GA 实际导出 TOTP 写 2；老 spec 误把 0=HOTP/1=TOTP 会把全部 TOTP 漏判。
+    if (p.type === 1) {
       // HOTP
       skipped.push({ reason: 'hotp', name: p.name });
       continue;
@@ -106,7 +112,8 @@ export function parseGaMigrationData(b64: string): GaMigrationResult {
     }
     const algorithm: Algorithm =
       p.algorithm === 2 ? 'SHA256' : p.algorithm === 3 ? 'SHA512' : 'SHA1';
-    const digits: 6 | 8 = p.digits === 1 ? 8 : 6;
+    // enum 0=UNSPECIFIED, 1=6 位, 2=8 位
+    const digits: 6 | 8 = p.digits === 2 ? 8 : 6;
     // GA 把 issuer 和 label 都塞在 name 字段里（"Issuer:account@example.com"），
     // 但同时也有 issuer 字段。我们优先用 issuer 字段；name 拆出 label。
     const name = p.name ?? '';
