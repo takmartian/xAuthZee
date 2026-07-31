@@ -1,0 +1,92 @@
+# XAuthZee — Store Listing (English)
+
+## Short description (≤ 80 chars)
+
+```
+TOTP authenticator in your browser. Scan a QR, click to fill, optional master password.
+```
+
+(81 chars — drop the period or one word to fit.)
+
+## Long description
+
+**XAuthZee** is a Time-based One-Time Password (TOTP / RFC 6238)
+authenticator that lives inside your browser. It is small, fast, and
+respects your privacy — all your accounts are stored locally and
+synced through your browser's own sync infrastructure, never sent to
+any server we operate.
+
+## Why XAuthZee
+
+Most authenticator apps live on a separate device, which means
+switching windows to grab a code. XAuthZee puts the codes where you
+already are — the browser tab that is asking for them.
+
+## Features
+
+- **Scan any QR on the page.** Click the scan button, drag a rectangle
+  over the QR code. XAuthZee reads it, parses the `otpauth://` URL,
+  and saves the account.
+- **One-click fill.** Focus a one-time-code input on any site and
+  XAuthZee shows a small panel with the matching code. Pick it and
+  the code is typed into the page (or copied to the clipboard as a
+  fallback when the site blocks scripting).
+- **Host bindings.** Bind accounts to specific hostnames so that when
+  you visit, say, `github.com`, the right code is at the top of the
+  list.
+- **Master password (optional).** Encrypt your secret keys with a
+  password you choose. The derived key lives in session storage and
+  is cleared when the browser closes. The auto-lock timer (5/15/30/60
+  minutes or never) and the system's own lock screen both lock the
+  extension immediately.
+- **Import / export.** Move accounts between devices as JSON. You can
+  also paste a `otpauth-migration://` link (Google Authenticator's
+  transfer format) or its QR screenshot.
+- **Cross-device sync.** Because accounts are stored in
+  `chrome.storage.sync`, they show up on every Chrome and Edge you
+  sign in to.
+- **i18n.** English and Simplified Chinese UI; the extension follows
+  the browser's language.
+
+## Permissions, briefly
+
+XAuthZee asks for the minimum set of permissions Chrome / Edge
+require and nothing more:
+
+- **storage** — to save your accounts and preferences locally and
+  sync them through your browser.
+- **activeTab** — only when you click the toolbar or scan button, to
+  read the current tab's URL and (if you ask) capture the QR.
+- **scripting** — to inject the QR region-selector overlay when you
+  ask to scan.
+- **alarms** — to schedule the auto-lock timer.
+- **idle** — to lock the extension when the operating system locks.
+
+No analytics, no telemetry, no remote code, no third-party SDKs.
+
+## Open source
+
+Source code and build instructions are available in the project
+repository. You can audit exactly what the extension does.
+
+## FAQ
+
+**Q: Where are my accounts stored?**
+A: Locally in your browser. If you sign in to a browser account
+(Google / Microsoft), your browser syncs them to your other devices
+using its own encrypted sync. The developer never sees them.
+
+**Q: Does it support HOTP?**
+A: No — only TOTP (RFC 6238). HOTP is rarely used today and is a
+different security model.
+
+**Q: Can I import from Google Authenticator?**
+A: Yes. Open the GA transfer-export QR, copy the image, and paste
+(⌘V) it into the XAuthZee import dialog. Or copy the
+`otpauth-migration://` URL string and paste that.
+
+**Q: What if I forget my master password?**
+A: Reset the extension: open options → security → turn off
+encryption with the password. If you cannot remember the password,
+the encrypted secrets are unrecoverable by design — re-add the
+accounts from their original QR codes.

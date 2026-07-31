@@ -15,6 +15,7 @@
     "compile": "tsc --noEmit",
     "test": "node --test \"tests/*.test.ts\"",
     "icons": "node scripts/gen-icons.mjs",
+    "store-assets": "node scripts/gen-store-assets.mjs",
     "serve:fixtures": "python3 -m http.server 5599 --bind 127.0.0.1 --directory tests/fixtures",
     "test:style": "node tests/style-isolation.mjs",
     "test:position": "node tests/positioning-strategy.mjs",
