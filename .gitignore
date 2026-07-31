@@ -26,3 +26,7 @@ stats-*.json
 *.njsproj
 *.sln
 *.sw?
+
+# Claude / 知识图谱（开发辅助，不入仓）
+.claude/
+graphify-out/
