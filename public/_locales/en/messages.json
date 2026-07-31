@@ -179,5 +179,17 @@
         "example": "git"
       }
     }
+  },
+  "rowMenuSectionCurrent": {
+    "message": "Bind to this site",
+    "description": "Section header in the row menu — entries for binding the current host"
+  },
+  "rowMenuSectionOtherBindings": {
+    "message": "Other bindings",
+    "description": "Section header in the row menu — entries for other domains this account is bound to"
+  },
+  "rowMenuAccount": {
+    "message": "Account",
+    "description": "Label suffix on the row menu's delete-account entry"
   }
 }

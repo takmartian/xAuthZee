@@ -179,5 +179,17 @@
         "example": "git"
       }
     }
+  },
+  "rowMenuSectionCurrent": {
+    "message": "绑定当前网站",
+    "description": "行尾菜单的分区标题 —— 当前 host 的绑定选项"
+  },
+  "rowMenuSectionOtherBindings": {
+    "message": "其他已绑域名",
+    "description": "行尾菜单的分区标题 —— 该账号已绑的其他域名"
+  },
+  "rowMenuAccount": {
+    "message": "账号",
+    "description": "行尾菜单「删除账号」条目的右侧标签"
   }
 }

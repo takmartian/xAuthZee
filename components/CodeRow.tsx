@@ -4,7 +4,7 @@ import type { Account } from '@/lib/model';
 import { generateCode, groupCode } from '@/lib/totp';
 import { isSharedHost, normalizeHost, registrableDomain } from '@/lib/domain';
 import { Ring } from './Ring';
-import { MoreIcon, TrashIcon } from './Icon';
+import { MoreIcon } from './Icon';
 import styles from './CodeRow.module.css';
 
 export interface CodeRowProps {
@@ -90,16 +90,8 @@ function CodeRowInner({
           currentHost={currentHost}
           onBindDomain={(d) => onBindDomain(account, d)}
           onUnbindDomain={(d) => onUnbindDomain(account, d)}
+          onDelete={() => onDelete(account)}
         />
-        <button
-          type="button"
-          className={styles.iconButton}
-          onClick={() => onDelete(account)}
-          title={t('rowDelete')}
-          aria-label={t('rowDelete')}
-        >
-          <TrashIcon />
-        </button>
       </div>
 
       {copied && <div className={styles.copiedToast}>{t('rowCopied')}</div>}
@@ -110,24 +102,25 @@ function CodeRowInner({
 /**
  * 行尾「...」菜单。
  *
- * 内容按场景动态生成：
- *  - 当前 host 已知 且 不在 account.domains 里 → 显示「绑定当前网站」
- *    下的两个子选项（精确 / 含子域）。
- *  - 当前 host 是已绑的 → 显示「解绑 <host>」。
- *  - 当前 host 拿不到（如 popup 是从 action 菜单打开的）→ 显示「没有可绑的当前网站」。
+ * 三个 section（按场景动态生成内容，可能为空）：
+ *  1. 当前网站绑定 —— 候选绑定项 + 解绑当前 host（如果有）
+ *  2. 其他已绑域名 —— 该账号绑过的、不在当前 host 的其它域名
+ *  3. 账号操作 —— 删除账号（危险操作）
  *
- * 鼠标 mousedown 拦截，避免菜单点开后点击事件穿透关闭菜单。
+ * mousedown 拦截，避免菜单点开后点击事件穿透关闭菜单。
  */
 function RowMenu({
   account,
   currentHost,
   onBindDomain,
   onUnbindDomain,
+  onDelete,
 }: {
   account: Account;
   currentHost: string | null;
   onBindDomain: (domain: string) => void;
   onUnbindDomain: (domain: string) => void;
+  onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -171,9 +164,17 @@ function RowMenu({
   // 已经绑过 host 的话，提供「解绑 <host>」入口
   const boundHere = host && account.domains.includes(host);
 
+  // 其他已绑域名（不是当前 host 的），也能从这里删
+  const otherBindings = account.domains.filter((d) => d !== host);
+
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     setOpen((v) => !v);
+  };
+
+  const handleDelete = () => {
+    setOpen(false);
+    onDelete();
   };
 
   return (
@@ -192,71 +193,91 @@ function RowMenu({
 
       {open && (
         <div className={styles.menu} role="menu">
-          {!host && (
-            <div className={styles.menuHint}>{t('rowMenuNoHost')}</div>
-          )}
-
-          {host && candidates.length === 0 && !boundHere && (
-            <div className={styles.menuHint}>{t('rowMenuNoCandidates')}</div>
-          )}
-
-          {candidates.map((c) => (
-            <button
-              key={c.domain}
-              type="button"
-              role="menuitem"
-              className={styles.menuItem}
-              onClick={() => {
-                onBindDomain(c.domain);
-                setOpen(false);
-              }}
-            >
-              <span className={styles.menuItemDomain}>{c.domain}</span>
-              <span className={styles.menuItemMode}>
-                {c.mode === 'exact' && t('rowMenuBindExact')}
-                {c.mode === 'registrable' && t('rowMenuBindRegistrable')}
-                {c.mode === 'shared' && t('rowMenuBindShared')}
-              </span>
-            </button>
-          ))}
-
-          {boundHere && (
-            <button
-              type="button"
-              role="menuitem"
-              className={`${styles.menuItem} ${styles.menuItemDanger}`}
-              onClick={() => {
-                onUnbindDomain(host);
-                setOpen(false);
-              }}
-            >
-              <span className={styles.menuItemDomain}>{t('rowMenuUnbind', host)}</span>
-            </button>
-          )}
-
-          {account.domains.length > 0 && (candidates.length > 0 || boundHere) && (
-            <div className={styles.menuDivider} />
-          )}
-
-          {/* 已绑的其他域名（不是当前 host 的），也能从这里删 */}
-          {account.domains
-            .filter((d) => d !== host)
-            .map((d) => (
+          {/* Section 1：当前网站绑定 */}
+          <div className={styles.menuSection}>
+            <div className={styles.menuSectionHeader}>{t('rowMenuSectionCurrent')}</div>
+            {!host && (
+              <div className={styles.menuHint}>{t('rowMenuNoHost')}</div>
+            )}
+            {host && candidates.length === 0 && !boundHere && (
+              <div className={styles.menuHint}>{t('rowMenuNoCandidates')}</div>
+            )}
+            {candidates.map((c) => (
               <button
-                key={d}
+                key={c.domain}
+                type="button"
+                role="menuitem"
+                className={styles.menuItem}
+                onClick={() => {
+                  onBindDomain(c.domain);
+                  setOpen(false);
+                }}
+              >
+                <span className={styles.menuItemDomain}>{c.domain}</span>
+                <span className={styles.menuItemMode}>
+                  {c.mode === 'exact' && t('rowMenuBindExact')}
+                  {c.mode === 'registrable' && t('rowMenuBindRegistrable')}
+                  {c.mode === 'shared' && t('rowMenuBindShared')}
+                </span>
+              </button>
+            ))}
+            {boundHere && (
+              <button
                 type="button"
                 role="menuitem"
                 className={`${styles.menuItem} ${styles.menuItemDanger}`}
                 onClick={() => {
-                  onUnbindDomain(d);
+                  onUnbindDomain(host);
                   setOpen(false);
                 }}
-                title={t('rowMenuUnbindTitle')}
               >
-                <span className={styles.menuItemDomain}>{d}</span>
-                <span className={styles.menuItemMode}>{t('rowMenuRemove')}</span>
+                <span className={styles.menuItemDomain}>{t('rowMenuUnbind', host)}</span>
               </button>
-            ))}
+            )}
+          </div>
+
+          {/* Section 2：其他已绑域名（仅在有内容时显示） */}
+          {otherBindings.length > 0 && (
+            <>
+              <div className={styles.menuDivider} />
+              <div className={styles.menuSection}>
+                <div className={styles.menuSectionHeader}>
+                  {t('rowMenuSectionOtherBindings')}
+                </div>
+                {otherBindings.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    role="menuitem"
+                    className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                    onClick={() => {
+                      onUnbindDomain(d);
+                      setOpen(false);
+                    }}
+                    title={t('rowMenuUnbindTitle')}
+                  >
+                    <span className={styles.menuItemDomain}>{d}</span>
+                    <span className={styles.menuItemMode}>{t('rowMenuRemove')}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Section 3：账号操作（危险） */}
+          <div className={styles.menuDivider} />
+          <div className={styles.menuSection}>
+            <button
+              type="button"
+              role="menuitem"
+              className={`${styles.menuItem} ${styles.menuItemDanger}`}
+              onClick={handleDelete}
+              title={t('rowDelete')}
+            >
+              <span className={styles.menuItemDomain}>{t('rowDelete')}</span>
+              <span className={styles.menuItemMode}>{t('rowMenuAccount')}</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
