@@ -199,5 +199,27 @@
   "rowMenuAccount": {
     "message": "Account",
     "description": "Label suffix on the row menu's delete-account entry"
+  },
+  "unlockTitle": {
+    "message": "Locked",
+    "description": "Title of the popup unlock gate"
+  },
+  "unlockSubtitle": {
+    "message": "Enter your master password to view your codes."
+  },
+  "unlockPlaceholder": {
+    "message": "Master password"
+  },
+  "unlockSubmit": {
+    "message": "Unlock"
+  },
+  "unlockSubmitting": {
+    "message": "Verifying…"
+  },
+  "unlockWrongPassword": {
+    "message": "Wrong password. Try again."
+  },
+  "unlockForgotHint": {
+    "message": "Forgot the password? You'll have to clear all account data — there's no recovery."
   }
 }

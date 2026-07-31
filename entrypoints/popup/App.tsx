@@ -6,7 +6,20 @@ import type { Account } from '@/lib/model';
 import { anyMatch } from '@/lib/domain';
 import { CodeRow, type CopyResult } from '@/components/CodeRow';
 import { AddDialog } from '@/components/AddDialog';
+import { UnlockScreen } from '@/components/UnlockScreen';
 import { QrIcon, KeyboardIcon, SearchIcon } from '@/components/Icon';
+import {
+  installLockRuntime,
+  getDerivedKey,
+  autoLockIfOverdue,
+} from '@/lib/lock-runtime';
+import {
+  getLockState,
+  onLockChange,
+  unlock as lockUnlock,
+  type LockUiState,
+} from '@/lib/lock';
+import { migrateSecret, revealAccounts, stripSecrets } from '@/lib/secrets';
 import styles from './App.module.css';
 
 /**
@@ -30,6 +43,8 @@ import styles from './App.module.css';
  *    （用户既然在搜，就不再按位置组织）。
  */
 export default function App() {
+  // 锁状态：'loading' 初始；之后由 runtime 决定
+  const [lockState, setLockState] = useState<LockUiState>('loading');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const [addOpen, setAddOpen] = useState(false);
@@ -40,22 +55,53 @@ export default function App() {
   // 搜索关键词。空 = 不过滤。
   const [query, setQuery] = useState('');
 
-  // 初次加载 + 监听跨设备 / 跨 popup 的变更
+  // 装 lock runtime + 初次 lockState + 监听变化 + 兜底自动锁
   useEffect(() => {
+    installLockRuntime();
     let cancelled = false;
-    void vault.list().then((list) => {
-      if (!cancelled) setAccounts(list);
+    void (async () => {
+      // SW 不一定在场，popup 自己再检查一次超时
+      try {
+        await autoLockIfOverdue();
+      } catch {
+        /* runtime 可能还没装上，忽略 */
+      }
+      if (cancelled) return;
+      setLockState(await getLockState());
+    })();
+    const off = onLockChange((s) => {
+      if (!cancelled) setLockState(s);
     });
-    const unwatch = watchVault(() => {
-      void vault.list().then((list) => {
-        if (!cancelled) setAccounts(list);
-      });
-    });
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, []);
+
+  // 加载 accounts —— 根据 lockState 决定是解密、明文、还是 strip
+  useEffect(() => {
+    if (lockState === 'loading') return;
+    let cancelled = false;
+    const load = async () => {
+      const raw = await vault.list();
+      let result: Account[];
+      if (lockState === 'unlocked') {
+        const key = await getDerivedKey();
+        result = key ? await revealAccounts(raw, key) : stripSecrets(raw);
+      } else if (lockState === 'locked') {
+        result = stripSecrets(raw);
+      } else {
+        result = raw; // plaintext
+      }
+      if (!cancelled) setAccounts(result);
+    };
+    void load();
+    const unwatch = watchVault(() => void load());
     return () => {
       cancelled = true;
       unwatch();
     };
-  }, []);
+  }, [lockState]);
 
   // 倒计时驱动：每秒重算一次 now，让 CodeRow 里的 Ring 跟着刷新
   useEffect(() => {
@@ -162,15 +208,23 @@ export default function App() {
 
   const handleAddSave = useCallback(
     async (draft: { issuer: string; label: string; secret: string }) => {
+      // unlocked 态：先把明文 secret 加密成 enc1: 再入库
+      // plaintext 态：直接写明文（现状）
+      let secret = draft.secret;
+      if (lockState === 'unlocked') {
+        const key = await getDerivedKey();
+        if (key) secret = await migrateSecret(secret, key);
+      }
       await vault.add({
         algorithm: 'SHA1' as const,
         digits: 6,
         period: 30,
         ...draft,
+        secret,
       });
       setAddOpen(false);
     },
-    [],
+    [lockState],
   );
 
   const scanning = scanStatus.kind === 'working';
@@ -200,6 +254,24 @@ export default function App() {
     }
     return [...hit, ...rest];
   }, [accounts, currentHost, query]);
+
+  // loading 态：runtime 还没装完，避免渲染主界面出现 codes 抖动
+  if (lockState === 'loading') {
+    return <div className={styles.root} aria-busy="true" />;
+  }
+
+  // locked 态用 UnlockScreen 占满整个 popup —— 没有列表、没有 footer、
+  // 没有 AddDialog，避免在「看不到 codes」的情况下还显示空账号占位
+  if (lockState === 'locked') {
+    return (
+      <div className={styles.root}>
+        <UnlockScreen
+          onSubmit={lockUnlock}
+          onUnlocked={() => setLockState('unlocked')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.root}>

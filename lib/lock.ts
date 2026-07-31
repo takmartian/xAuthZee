@@ -44,6 +44,9 @@ import { isEncryptedSecret, migrateAccounts, revealSecret } from './secrets.ts';
 
 export type LockState = 'plaintext' | 'locked' | 'unlocked';
 
+/** 锁状态 + UI 用的「还没拿到状态」标记 */
+export type LockUiState = LockState | 'loading';
+
 /** storage.sync 的最小子集 */
 export interface SyncStorage {
   get(key: string): Promise<Record<string, unknown>>;

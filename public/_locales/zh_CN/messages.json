@@ -199,5 +199,27 @@
   "rowMenuAccount": {
     "message": "账号",
     "description": "行尾菜单「删除账号」条目的右侧标签"
+  },
+  "unlockTitle": {
+    "message": "已锁定",
+    "description": "popup 锁闸门的主标题"
+  },
+  "unlockSubtitle": {
+    "message": "输入主密码查看你的验证码。"
+  },
+  "unlockPlaceholder": {
+    "message": "主密码"
+  },
+  "unlockSubmit": {
+    "message": "解锁"
+  },
+  "unlockSubmitting": {
+    "message": "验证中…"
+  },
+  "unlockWrongPassword": {
+    "message": "密码错误，请重试。"
+  },
+  "unlockForgotHint": {
+    "message": "忘了密码？只能清除全部账号数据，无法找回。"
   }
 }
