@@ -6,6 +6,10 @@ import { anyMatch } from '@/lib/domain';
 import { generateCode } from '@/lib/totp';
 import { mountPanel, type OverlayHandle, type OverlayListItem } from './Overlay';
 import type { Account } from '@/lib/model';
+import { installLockRuntime } from '@/lib/lock-runtime';
+import { getLockState } from '@/lib/lock';
+import { revealAccounts, stripSecrets } from '@/lib/secrets';
+import { b64ToBytes } from '@/lib/crypto';
 
 /**
  * 常驻内容脚本（M7）：OTP 输入框聚焦浮层 + 填充。
@@ -55,6 +59,9 @@ export default defineContentScript({
     let currentTarget: HTMLInputElement | null = null;
     let cachedAccounts: Account[] | null = null;
 
+    // 装 lock runtime —— 浮层要按 lockState 决定能否展示密文
+    installLockRuntime();
+
     // 每次 focusin 都拉一次账号列表是浪费 —— 缓存到 storage 变更。
     // 但 popup 写入 → storage.sync.onChanged → 我们重新拉。一次浮层显示
     // 期间不会感知到变化，所以挂一个 listener 在 onChanged 时清缓存。
@@ -70,18 +77,41 @@ export default defineContentScript({
           byId.set(k.slice(5), v as Account);
         }
       }
-      const result: Account[] = [];
+      const accounts: Account[] = [];
       for (const id of order) {
         const a = byId.get(id);
-        if (a) result.push(a);
+        if (a) accounts.push(a);
       }
-      for (const [id, a] of byId) if (!order.includes(id)) result.push(a);
+      for (const [id, a] of byId) if (!order.includes(id)) accounts.push(a);
+
+      // 按 lockState 处理 secret：plaintext 直返，unlocked 解密，
+      // locked 把 secret 清空（filterAccounts 已有的 !a.secret continue
+      // 会自然过滤掉所有账号 —— 浮层就空了）。
+      const state = await getLockState();
+      let result: Account[];
+      if (state === 'unlocked') {
+        const { derivedKey } = await browser.storage.session.get('derivedKey');
+        if (typeof derivedKey === 'string') {
+          const key = b64ToBytes(derivedKey);
+          result = await revealAccounts(accounts, key);
+        } else {
+          result = stripSecrets(accounts);
+        }
+      } else if (state === 'locked') {
+        result = stripSecrets(accounts);
+      } else {
+        result = accounts;
+      }
       cachedAccounts = result;
       return result;
     }
 
-    browser.storage.onChanged.addListener((_changes, area) => {
-      if (area === 'sync') cachedAccounts = null;
+    browser.storage.onChanged.addListener((changes, area) => {
+      // sync 变 → 账号列表可能改了；session.derivedKey 变 → 锁状态变
+      // 两种情况都要清 cache，下一次 focusin 重新走加解密路径
+      if (area === 'sync' || (area === 'session' && 'derivedKey' in changes)) {
+        cachedAccounts = null;
+      }
     });
 
     async function getPrefs() {
