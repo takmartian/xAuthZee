@@ -1,5 +1,7 @@
 # XAuthZee / 小验子
 
+**[English](README.md) | [中文](README.zh.md)**
+
 A Time-based One-Time Password (TOTP / RFC 6238) authenticator that
 lives inside your browser. Scan a QR code from any page, then fill your
 one-time code with a single click. Optional master-password encryption,
