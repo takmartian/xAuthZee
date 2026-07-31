@@ -77,7 +77,6 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
   const [gaUrl, setGaUrl] = useState('');
   const [gaInfo, setGaInfo] = useState<{ skipped: GaMigrationResult['skipped']; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const gaFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const close = useCallback(() => {
     setMode('idle');
@@ -92,7 +91,6 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     setGaUrl('');
     setGaInfo(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (gaFileInputRef.current) gaFileInputRef.current.value = '';
   }, []);
 
   // --- Google Authenticator 迁移
@@ -183,11 +181,27 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     }
   }, [prefs, gaToExportPayload]);
 
-  const onGaFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    void handleGaFile(file);
-  }, [handleGaFile]);
+  /**
+   * 监听 textarea 的 paste 事件：粘贴图片时拦截并用 jsQR 解码，粘贴
+   * 文本则让浏览器默认行为（写入 textarea）。这样比「上传文件」按钮
+   * 更顺：用户截图后 Cmd+V 直接到对话框。
+   */
+  const onGaPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const blob = item.getAsFile();
+          if (blob) void handleGaFile(blob);
+          return;
+        }
+      }
+      // 文本粘贴不阻止，让 textarea 正常处理
+    },
+    [handleGaFile],
+  );
 
   // --- 导出
 
@@ -415,13 +429,6 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
           className={styles.hiddenFile}
           onChange={(e) => void onFileChange(e)}
         />
-        <input
-          ref={gaFileInputRef}
-          type="file"
-          accept="image/*"
-          className={styles.hiddenFile}
-          onChange={onGaFileChange}
-        />
       </div>
 
       {mode === 'export-mode' && (
@@ -539,6 +546,7 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
             className={styles.gaTextarea}
             value={gaUrl}
             onChange={(e) => setGaUrl(e.target.value)}
+            onPaste={onGaPaste}
             placeholder="otpauth-migration://offline?data=..."
             rows={4}
             spellCheck={false}
@@ -553,13 +561,6 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
               onClick={handleGaUrlSubmit}
             >
               {t('optionsGaParseUrl')}
-            </button>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => gaFileInputRef.current?.click()}
-            >
-              {t('optionsGaUploadImage')}
             </button>
           </div>
           {error && <div className={styles.formError}>{error}</div>}

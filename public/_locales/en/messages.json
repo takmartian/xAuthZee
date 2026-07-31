@@ -392,13 +392,10 @@
     "message": "Import from Google Authenticator"
   },
   "optionsGaIntro": {
-    "message": "Paste the migration link exported from Google Authenticator, or upload its QR code image. The link starts with otpauth-migration://."
+    "message": "Paste the Google Authenticator migration link (otpauth-migration://...), or simply Cmd+V the migration QR screenshot."
   },
   "optionsGaParseUrl": {
     "message": "Parse link"
-  },
-  "optionsGaUploadImage": {
-    "message": "Upload QR image"
   },
   "optionsGaEmpty": {
     "message": "Please paste a migration link"

@@ -392,13 +392,10 @@
     "message": "从 Google Authenticator 迁移"
   },
   "optionsGaIntro": {
-    "message": "粘贴 Google Authenticator 导出的迁移链接，或上传迁移二维码图片。链接以 otpauth-migration:// 开头。"
+    "message": "粘贴 Google Authenticator 导出的迁移链接（otpauth-migration://...），或者直接 Cmd+V 粘贴迁移二维码截图。"
   },
   "optionsGaParseUrl": {
     "message": "解析链接"
-  },
-  "optionsGaUploadImage": {
-    "message": "上传二维码图片"
   },
   "optionsGaEmpty": {
     "message": "请粘贴迁移链接"
