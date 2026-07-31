@@ -38,7 +38,8 @@ interface TransferSectionProps {
   accounts: Account[];
   prefs: Prefs;
   lockState: LockState;
-  onChanged: () => void;
+  /** 写回 vault 后让父组件 reload；返回 Promise 让子组件等真正完成再切面板 */
+  onChanged: () => Promise<void> | void;
 }
 
 type Mode =
@@ -48,8 +49,16 @@ type Mode =
   | 'export-confirm'
   | 'import-password'
   | 'import-preview'
+  | 'import-success'
   | 'import-error'
   | 'busy';
+
+interface ImportResultInfo {
+  added: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ id?: string; message: string }>;
+}
 
 export function TransferSection({ accounts, prefs, lockState, onChanged }: TransferSectionProps) {
   const [mode, setMode] = useState<Mode>('idle');
@@ -61,6 +70,7 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
   const [exportPwConfirm, setExportPwConfirm] = useState('');
   const [importPw, setImportPw] = useState('');
   const [importMode, setImportMode] = useState<ImportMode>('merge');
+  const [importResult, setImportResult] = useState<ImportResultInfo | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const close = useCallback(() => {
@@ -72,6 +82,7 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     setExportPw('');
     setExportPwConfirm('');
     setImportPw('');
+    setImportResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
@@ -140,9 +151,12 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     if (!file) return;
     setError(null);
     setImportPw('');
+    console.time('[XAuthZee] import:onFileChange');
     try {
       const text = await file.text();
+      console.timeLog('[XAuthZee] import:onFileChange', 'read done');
       const r = parseExport(text);
+      console.timeLog('[XAuthZee] import:onFileChange', 'parseExport done');
       if (r.errors.length) {
         setError(r.errors.map((er) => `${er.code}: ${er.message}`).join('；'));
         setMode('import-error');
@@ -163,6 +177,8 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setMode('import-error');
+    } finally {
+      console.timeEnd('[XAuthZee] import:onFileChange');
     }
   }, []);
 
@@ -173,12 +189,25 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
       return;
     }
     setError(null);
-    const r = await decryptExportPayload(pendingEncrypted, importPw);
-    if (!r.payload) {
-      setError(t('optionsImportWrongPassword'));
+    // PBKDF2 600k iter 是有意为之（OWASP 推荐），crypto.subtle 第一次调用
+    // 还有 JIT 预热成本。在 UI 上加遮罩让用户知道在跑、不是卡死。
+    setMode('busy');
+    console.time('[XAuthZee] import:decrypt');
+    let payload: ExportPayload | null = null;
+    let errors: { code: string; message: string }[] = [];
+    try {
+      const r = await decryptExportPayload(pendingEncrypted, importPw);
+      payload = r.payload;
+      errors = r.errors;
+    } finally {
+      console.timeEnd('[XAuthZee] import:decrypt');
+    }
+    if (!payload) {
+      setError(errors[0]?.code === 'wrong_password' ? t('optionsImportWrongPassword') : (errors[0]?.message ?? t('optionsImportWrongPassword')));
+      setMode('import-password');
       return;
     }
-    setPendingPlain(r.payload);
+    setPendingPlain(payload);
     setPendingEncrypted(null);
     setImportPw('');
     setMode('import-preview');
@@ -188,6 +217,7 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     if (!pendingPlain) return;
     setMode('busy');
     setError(null);
+    console.time('[XAuthZee] import:confirm');
     try {
       const key = lockState === 'unlocked' ? await getDerivedKey() : null;
       const result = await applyImport(pendingPlain, importMode, {
@@ -196,13 +226,7 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
         lockState,
         derivedKey: key,
       });
-      if (result.errors.length) {
-        setError(
-          `${t('optionsImportPartial')} ${result.errors
-            .map((er) => `${er.id ?? '?'}: ${er.message}`)
-            .join('；')}`,
-        );
-      }
+      console.timeLog('[XAuthZee] import:confirm', 'applyImport done');
       const changed = result.finalAccounts.filter((a) => {
         const cur = accounts.find((c) => c.id === a.id);
         if (!cur) return true;
@@ -216,19 +240,33 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
           cur.domains.join('|') !== a.domains.join('|')
         );
       });
+      console.timeLog('[XAuthZee] import:confirm', `changed=${changed.length}`);
       if (changed.length > 0) {
         await vault.importRecords(changed);
+        console.timeLog('[XAuthZee] import:confirm', 'importRecords done');
       }
       if (result.prefsChanged) {
         await vault.setPrefs(result.finalPrefs);
+        console.timeLog('[XAuthZee] import:confirm', 'setPrefs done');
       }
-      onChanged();
-      close();
+      await onChanged();
+      console.timeLog('[XAuthZee] import:confirm', 'onChanged reload done');
+      // 全部成功 → 成功面板
+      setImportResult({
+        added: result.added.length,
+        updated: result.updated.length,
+        skipped: result.skipped.length,
+        errors: result.errors,
+      });
+      setPendingPlain(null);
+      setMode('import-success');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setMode('import-error');
+    } finally {
+      console.timeEnd('[XAuthZee] import:confirm');
     }
-  }, [pendingPlain, importMode, accounts, prefs, lockState, onChanged, close]);
+  }, [pendingPlain, importMode, accounts, prefs, lockState, onChanged]);
 
   const disabled = lockState === 'locked';
 
@@ -384,7 +422,35 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
         />
       )}
 
-      {mode === 'busy' && <p className={styles.placeholder}>{t('optionsImportWorking')}</p>}
+      {mode === 'busy' && (
+        <BusyOverlay label={t('optionsImportWorking')} />
+      )}
+
+      {mode === 'import-success' && importResult && (
+        <div className={styles.transferPanel}>
+          <p className={styles.transferSuccess}>
+            ✓ {t('optionsImportSuccessTitle')}
+          </p>
+          <p className={styles.transferSummary}>
+            {t('optionsImportSuccessSummary', [
+              String(importResult.added),
+              String(importResult.updated),
+              String(importResult.skipped),
+            ])}
+          </p>
+          {importResult.errors.length > 0 && (
+            <div className={styles.formError}>
+              {t('optionsImportPartial')}
+              {importResult.errors.map((er) => `${er.id ?? '?'}: ${er.message}`).join('；')}
+            </div>
+          )}
+          <div className={styles.formActions}>
+            <button type="button" className={styles.primaryButton} onClick={close}>
+              {t('addDialogOk')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {mode === 'import-error' && error && (
         <div className={styles.transferPanel}>
@@ -397,6 +463,19 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
         </div>
       )}
     </section>
+  );
+}
+
+// ------------------------------------------------------------ Busy 遮罩
+
+function BusyOverlay({ label }: { label: string }) {
+  return (
+    <div className={styles.busyOverlay} role="status" aria-live="polite">
+      <div className={styles.busyCard}>
+        <div className={styles.busySpinner} />
+        <div className={styles.busyLabel}>{label}</div>
+      </div>
+    </div>
   );
 }
 

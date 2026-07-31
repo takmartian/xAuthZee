@@ -376,5 +376,16 @@
   },
   "optionsImportPartial": {
     "message": "部分账号导入失败："
+  },
+  "optionsImportSuccessTitle": {
+    "message": "导入完成"
+  },
+  "optionsImportSuccessSummary": {
+    "message": "新增 $ADD$ / 覆盖 $UPDATE$ / 跳过 $SKIP$ 个。",
+    "placeholders": {
+      "add": { "content": "$1" },
+      "update": { "content": "$2" },
+      "skip": { "content": "$3" }
+    }
   }
 }

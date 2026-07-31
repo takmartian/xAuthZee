@@ -376,5 +376,16 @@
   },
   "optionsImportPartial": {
     "message": "Some accounts failed to import: "
+  },
+  "optionsImportSuccessTitle": {
+    "message": "Import complete"
+  },
+  "optionsImportSuccessSummary": {
+    "message": "Added $ADD$ / overwritten $UPDATE$ / skipped $SKIP$.",
+    "placeholders": {
+      "add": { "content": "$1" },
+      "update": { "content": "$2" },
+      "skip": { "content": "$3" }
+    }
   }
 }

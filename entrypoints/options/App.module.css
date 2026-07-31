@@ -349,3 +349,72 @@
   font-size: 12.5px;
   cursor: pointer;
 }
+
+.transferSuccess {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1b7e3c;
+}
+
+@media (prefers-color-scheme: dark) {
+  .transferSuccess {
+    color: #66bb6a;
+  }
+}
+
+/* 半透明遮罩 + 居中卡片。fixed full-screen 盖住整个设置页，避免用户重复点 */
+.busyOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(1px);
+}
+
+.busyCard {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 200px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .busyCard {
+    background: #2a2a2a;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.busySpinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(0, 0, 0, 0.12);
+  border-top-color: #409eff;
+  border-radius: 50%;
+  animation: xz-busy-spin 0.8s linear infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+  .busySpinner {
+    border-color: rgba(255, 255, 255, 0.15);
+    border-top-color: #6cb6ff;
+  }
+}
+
+@keyframes xz-busy-spin {
+  to { transform: rotate(360deg); }
+}
+
+.busyLabel {
+  font-size: 13px;
+  font-weight: 500;
+}

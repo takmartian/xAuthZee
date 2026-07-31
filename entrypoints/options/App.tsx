@@ -70,10 +70,13 @@ export default function App() {
     });
   };
 
-  // M9：导入完成后由 TransferSection 调一次，重新拉 vault 状态
-  const reloadFromVault = useCallback(() => {
-    void vault.list().then((list) => setAccounts(list));
-    void vault.getPrefs().then((p) => setPrefs(p));
+  // M9：导入完成后由 TransferSection 调一次，重新拉 vault 状态。
+  // 返回 Promise 是给 TransferSection 等 vault 写完后的 reload 真正完成
+  // 再切到成功面板 —— 避免"显示成功但界面列表还没刷新"的中间态。
+  const reloadFromVault = useCallback(async () => {
+    const [list, p] = await Promise.all([vault.list(), vault.getPrefs()]);
+    setAccounts(list);
+    setPrefs(p);
   }, []);
 
   const updatePref = async <K extends keyof Prefs>(key: K, value: Prefs[K]) => {
