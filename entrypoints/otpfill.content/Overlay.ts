@@ -37,6 +37,8 @@ export interface OverlayHandle {
 export interface OverlayCallbacks {
   /** 点列表项时调用 —— 传入 account 和「原始 target 输入框」 */
   onPick: (account: Account) => void;
+  /** M8-k：locked 态下点「点击解锁」时调用（让 background 弹 popup） */
+  onUnlock?: () => void;
 }
 
 export interface OverlayListItem {
@@ -46,11 +48,23 @@ export interface OverlayListItem {
 }
 
 /**
+ * 浮层模式：
+ * - 'normal'：按 items 渲染列表 / 空态文案（默认）
+ * - 'locked'：M8-k，locked 态下不展示账号（secret 都被 stripSecrets 清掉
+ *   了），改成渲染一个「小验子已锁定 · 点击解锁」按钮。点它走 onUnlock。
+ */
+export type OverlayMode = 'normal' | 'locked';
+
+/**
  * 创建浮层 host（挂在 documentElement 下，Shadow DOM 内）。
  *
  * 调用方持有 handle，结束时调 destroy。
  */
-export function mountPanel(items: OverlayListItem[], cb: OverlayCallbacks): OverlayHandle {
+export function mountPanel(
+  items: OverlayListItem[],
+  cb: OverlayCallbacks,
+  mode: OverlayMode = 'normal',
+): OverlayHandle {
   // ---- Shadow DOM 容器
   const hostEl = document.createElement('div');
   hostEl.dataset.xzPanelHost = '';
@@ -61,7 +75,9 @@ export function mountPanel(items: OverlayListItem[], cb: OverlayCallbacks): Over
 
   // ---- 浮层根
   const root = h('div', { class: 'xz-panel', attrs: { role: 'listbox' } });
-  if (items.length === 0) {
+  if (mode === 'locked') {
+    root.append(lockedHint(cb));
+  } else if (items.length === 0) {
     root.append(emptyHint());
   } else {
     for (const item of items) {
@@ -177,4 +193,34 @@ function badge(mode: 'subdomain' | 'shared'): HTMLElement {
 
 function emptyHint(): HTMLElement {
   return h('div', { class: 'xz-empty', text: '小验子 · 没有匹配的账号' });
+}
+
+/**
+ * M8-k：locked 态浮层主件。两行：标题「小验子已锁定」+ 一个「点击解锁」
+ * 按钮（点它走 cb.onUnlock → content 发 xz-open-popup 让 background 弹
+ * popup）。文案直接写死中文，避免在 content 上下文里再 import i18n 模块。
+ */
+function lockedHint(cb: OverlayCallbacks): HTMLElement {
+  const wrap = h('div', { class: 'xz-locked' });
+
+  const title = h('div', { class: 'xz-locked-title', text: '小验子已锁定' });
+  const sub = h('div', {
+    class: 'xz-locked-sub',
+    text: '打开工具栏弹窗输入密码解锁',
+  });
+
+  const btn = h('button', {
+    class: 'xz-locked-btn',
+    attrs: { type: 'button' },
+    text: '点击解锁',
+  });
+  // mousedown.preventDefault 阻止输入框失焦（同 row 的处理）
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    cb.onUnlock?.();
+  });
+
+  wrap.append(title, sub, btn);
+  return wrap;
 }

@@ -79,8 +79,8 @@ async function sendVaultProxy(req: Omit<VaultProxyRequest, 'type'>): Promise<Rec
 export function createMessageSyncArea(): StorageArea {
   return {
     get: (keys) => sendVaultProxy({ op: 'get', keys: keys ?? null }) as Promise<Record<string, unknown>>,
-    set: (items) => sendVaultProxy({ op: 'set', items }) as Promise<Record<string, unknown>>,
-    remove: (keys) => sendVaultProxy({ op: 'remove', keys }) as Promise<Record<string, unknown>>,
+    set: (items) => sendVaultProxy({ op: 'set', items }).then(() => undefined),
+    remove: (keys) => sendVaultProxy({ op: 'remove', keys }).then(() => undefined),
     getBytesInUse: (keys) => sendVaultProxy({ op: 'getBytesInUse', keys: keys ?? null }) as Promise<number>,
   };
 }

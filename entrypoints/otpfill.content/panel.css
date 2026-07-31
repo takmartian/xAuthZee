@@ -126,3 +126,54 @@
   font-size: 12px;
   opacity: 0.55;
 }
+
+/* M8-k：locked 态浮层主件 —— 三行：标题 / 副标 / 按钮。 */
+.xz-locked {
+  padding: 14px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.xz-locked-title {
+  font-weight: 600;
+  font-size: 13px;
+  text-align: center;
+}
+
+.xz-locked-sub {
+  font-size: 11.5px;
+  opacity: 0.65;
+  text-align: center;
+}
+
+.xz-locked-btn {
+  margin-top: 4px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(64, 158, 255, 0.18);
+  color: #1976d2;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.xz-locked-btn:hover,
+.xz-locked-btn:focus-visible {
+  background: rgba(64, 158, 255, 0.28);
+  outline: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .xz-locked-btn {
+    background: rgba(64, 158, 255, 0.24);
+    color: #6cb6ff;
+  }
+  .xz-locked-btn:hover,
+  .xz-locked-btn:focus-visible {
+    background: rgba(64, 158, 255, 0.36);
+  }
+}

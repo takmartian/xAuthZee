@@ -3,6 +3,31 @@ import { browser } from 'wxt/browser';
 import { vault } from '@/lib/storage';
 import { setLockRuntime, checkAutoLock, lock } from '@/lib/lock';
 
+// 锁 / 账号库任何写入 → 通过 tabs.sendMessage 广播到所有 content tab。
+// MV3 content script 不能直接监听 chrome.storage.onChanged（会抛
+// "Access to storage is not allowed from this context"），所以 background
+// 收一次再主动转发。tab.query 在 headless / WXT build 期间可能没 tabs，
+// 静默吞错。
+browser.storage.onChanged.addListener((_changes, area) => {
+  if (area !== 'sync' && area !== 'session') return;
+  void browser.tabs
+    .query({})
+    .then((tabs) => {
+      for (const t of tabs) {
+        if (typeof t.id === 'number') {
+          void browser.tabs
+            .sendMessage(t.id, { type: 'xz-storage-changed', area } as const)
+            .catch(() => {
+              /* tab 没有 content script（chrome:// 等）时 sendMessage 拒绝；忽略 */
+            });
+        }
+      }
+    })
+    .catch(() => {
+      /* tabs.query 在某些环境不可用；不影响 SW 主流程 */
+    });
+});
+
 /**
  * Service Worker 消息路由。
  *
@@ -34,6 +59,9 @@ interface ChromeWithLifecycle {
     onStateChanged?: {
       addListener(cb: (state: 'locked' | 'idle' | 'active') => void): unknown;
     };
+  };
+  action?: {
+    openPopup?: () => Promise<void>;
   };
 }
 const chromeGlobal = (globalThis as { chrome?: ChromeWithLifecycle }).chrome;
@@ -154,7 +182,8 @@ type AnyRequest =
       op: 'get' | 'set' | 'remove';
       key?: string;
       items?: Record<string, unknown>;
-    };
+    }
+  | { type: 'xz-open-popup' };
 
 interface SaveDraft {
   issuer: string;
@@ -203,6 +232,10 @@ export default defineBackground(() => {
         return true;
       case 'xz-lock-proxy':
         handleLockProxy(req).then(sendResponse).catch(reportError(sendResponse, 'lock-proxy'));
+        return true;
+      // M8-k：content 端 locked 态点击「点击解锁」→ background 尝试开 popup
+      case 'xz-open-popup':
+        handleOpenPopup().then(sendResponse).catch(reportError(sendResponse, 'open-popup'));
         return true;
     }
   });
@@ -315,4 +348,22 @@ function parsePngDimensions(dataUrl: string): { width: number; height: number } 
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const view = new DataView(bytes.buffer);
   return { width: view.getUint32(16), height: view.getUint32(20) };
+}
+
+/**
+ * 让 background 主动打开 popup —— 用 chrome.action.openPopup()（Chrome 102+）。
+ *
+ * Chrome 限制 openPopup 必须在 user gesture 上下文中调用；content script
+ * 发来的 sendMessage 多数情况下能传染 user activation，但若失败，浮层仍
+ * 可显示「点击工具栏图标」提示文本作为兜底。
+ */
+async function handleOpenPopup(): Promise<{ ok: boolean }> {
+  const opener = chromeGlobal?.action?.openPopup;
+  if (!opener) return { ok: false };
+  try {
+    await opener.call(chromeGlobal!.action);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }

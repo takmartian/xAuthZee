@@ -88,14 +88,16 @@ export default defineContentScript({
       return result;
     }
 
-    // onChanged 事件在 MV3 content script 上下文里是允许监听的：
-    // 跨 surface 同步由 Chrome 自动广播到这里。
-    browser.storage.onChanged.addListener((_changes, area) => {
-      // sync 变 → 账号列表可能改了；session.derivedKey 变 → 锁状态变
-      // 两种情况都要清 cache，下一次 focusin 重新走加解密路径
-      if (area === 'sync' || area === 'session') {
-        cachedAccounts = null;
-      }
+    // MV3 content script 不能直接监听 browser.storage.onChanged（会抛
+    // "Access to storage is not allowed from this context"）。background 那
+    // 边在 storage 变化时通过 tabs.sendMessage 广播 xz-storage-changed，
+    // 这里用 runtime.onMessage 收并清缓存。
+    browser.runtime.onMessage.addListener((message) => {
+      const m = message as { type?: string; area?: string } | undefined;
+      if (m?.type !== 'xz-storage-changed') return false;
+      if (m.area !== 'sync' && m.area !== 'session') return false;
+      cachedAccounts = null;
+      return false;
     });
 
     async function getPrefs() {
@@ -112,9 +114,48 @@ export default defineContentScript({
       currentPanel?.destroy();
       currentTarget = target;
 
-      const [prefs, accounts] = await Promise.all([getPrefs(), loadAccounts()]);
+      const prefs = await getPrefs();
       if (!prefs.panelEnabled) return;
 
+      // M8-k：locked 态下不展示账号列表，改成「点击解锁」入口
+      const lockStateNow = await getLockState();
+      if (lockStateNow === 'locked') {
+        const panel = mountPanel(
+          [],
+          {
+            onPick: () => {},
+            onUnlock: () => {
+              // 点「点击解锁」→ background 调 chrome.action.openPopup()。
+              // Chrome 限制 openPopup 必须有 user gesture；content 端
+              // sendMessage 不一定传染得到，失败就静默 —— 浮层文案已提示
+              // 「打开工具栏弹窗」作兜底。
+              void browser.runtime
+                .sendMessage({ type: 'xz-open-popup' })
+                .catch(() => {});
+              panel.destroy();
+              if (currentPanel === panel) currentPanel = null;
+            },
+          },
+          'locked',
+        );
+        currentPanel = panel;
+        panel.position(target.getBoundingClientRect(), {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+        const onFocusOut = (e: FocusEvent) => {
+          const next = e.relatedTarget as Node | null;
+          if (next && panel.root.contains(next)) return;
+          if (next === target) return;
+          panel.destroy();
+          target.removeEventListener('focusout', onFocusOut);
+          if (currentPanel === panel) currentPanel = null;
+        };
+        target.addEventListener('focusout', onFocusOut);
+        return;
+      }
+
+      const accounts = await loadAccounts();
       const host = window.location.host;
       const items = filterAccounts(accounts, host);
       // 浮层条目按「命中 + issuer 字典序」排，命中模式 'subdomain' / 'shared' 给个徽标

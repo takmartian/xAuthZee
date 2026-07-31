@@ -63,23 +63,27 @@ export function SecuritySection({
         {lockState === 'locked' && t('optionsSecurityStateLocked')}
       </p>
 
-      {/* 自动锁超时 —— 任意状态都可改 */}
-      <label className={styles.toggle}>
-        <span>{t('optionsAutoLockMinutes')}</span>
-        <select
-          className={styles.select}
-          value={prefs.lockMinutes}
-          onChange={(e) => onPrefsChange({ lockMinutes: Number(e.target.value) })}
-        >
-          {AUTO_LOCK_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.labelKey === 'optionsAutoLockNever'
-                ? t(o.labelKey)
-                : t(o.labelKey, String(o.value))}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* 自动锁超时 —— 只在已启用加密时才有意义，plaintext 态不展示。
+          偏好值仍存在 storage 里（关闭加密时保留），重新启用加密后下拉
+          会按当前值预选。 */}
+      {lockState !== 'plaintext' && (
+        <label className={styles.toggle}>
+          <span>{t('optionsAutoLockMinutes')}</span>
+          <select
+            className={styles.select}
+            value={prefs.lockMinutes}
+            onChange={(e) => onPrefsChange({ lockMinutes: Number(e.target.value) })}
+          >
+            {AUTO_LOCK_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.labelKey === 'optionsAutoLockNever'
+                  ? t(o.labelKey)
+                  : t(o.labelKey, String(o.value))}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {/* 操作按钮 —— 按状态显示 */}
       {lockState === 'plaintext' && (

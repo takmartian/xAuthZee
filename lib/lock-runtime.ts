@@ -146,15 +146,12 @@ export function installContentLockRuntime(): void {
     // content 不调度 alarm
     alarm: null,
     now: () => Date.now(),
-    onChange(cb) {
-      // onChanged 事件在 MV3 content script 上下文里是允许监听的：
-      // 它走的是扩展事件广播，不要求 storage 权限。
-      const handler = async (_changes: unknown, area: string) => {
-        if (area !== 'sync' && area !== 'session') return;
-        cb(await getLockState());
-      };
-      browser.storage.onChanged.addListener(handler);
-      return () => browser.storage.onChanged.removeListener(handler);
+    // content 端不直接监听 browser.storage.onChanged：MV3 content script
+    // 访问 storage 命名空间会抛 "Access to storage is not allowed from this
+    // context"。锁 / 账号库变化由 background 主动通过 tabs.sendMessage 广播
+    // `xz-storage-changed` 通知，content 端用 runtime.onMessage 收。
+    onChange(_cb) {
+      return () => {};
     },
   };
 
