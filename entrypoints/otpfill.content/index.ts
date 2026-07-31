@@ -159,11 +159,13 @@ export default defineContentScript({
       const host = window.location.host;
       const items = filterAccounts(accounts, host);
       // 浮层条目按「命中 + issuer 字典序」排，命中模式 'subdomain' / 'shared' 给个徽标
+      // 'exact' 命中（域名列表中精确匹配当前 host）给右侧小圆点。
       const list: OverlayListItem[] = items.map((a) => {
         const m = anyMatch(host, a.domains);
         return {
           account: a,
           matchMode: m.hit ? m.mode : 'exact',
+          matched: m.hit,
         };
       });
 

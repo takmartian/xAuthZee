@@ -109,6 +109,17 @@
   color: #b85c00;
 }
 
+/* 命中标记：6px 圆点，绿色，与 hover 背景不冲突（dot 是 flex 子元素，hover
+   背景只盖在 row 自己背景上，dot 是独立的实心色块）。 */
+.xz-match-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ea44f;
+  margin-left: 4px;
+}
+
 @media (prefers-color-scheme: dark) {
   .xz-badge-subdomain {
     background: rgba(64, 158, 255, 0.22);
@@ -117,6 +128,9 @@
   .xz-badge-shared {
     background: rgba(255, 152, 0, 0.22);
     color: #ffb866;
+  }
+  .xz-match-dot {
+    background: #3fb950;
   }
 }
 

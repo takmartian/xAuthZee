@@ -43,8 +43,18 @@ export interface OverlayCallbacks {
 
 export interface OverlayListItem {
   account: Account;
-  /** 命中模式，用于在条目上显示一个徽标 */
+  /**
+   * 命中模式：
+   *   - 'exact' / 'subdomain' / 'shared'：当前 host 被账号的 domains 命中
+   *   - 'none'：未命中
+   *
+   * 注意：'exact' 也作为「未命中时回退」值使用 —— 真正的命中与否请看
+   * `matched` 字段（这是历史 bug：之前 Overlay 拿不到 hit 信息就用
+   * 'exact' 兜底，导致精确匹配和未匹配无法在 UI 上区分）。
+   */
   matchMode: 'exact' | 'subdomain' | 'shared' | 'none';
+  /** 当前 host 是否被此账号的 domains 命中 —— 决定要不要高亮（右侧小圆点） */
+  matched: boolean;
 }
 
 /**
@@ -133,12 +143,18 @@ export function mountPanel(
     if (left + PANEL_WIDTH > viewport.width - 8) {
       left = Math.max(8, viewport.width - PANEL_WIDTH - 8);
     }
+    // 浮层高度上限：~2.5 行（M9 之后改成更紧凑的"按需滚动"）。每行大约
+    // 50px（8+8 padding + 13*2 行高 + 1px border）。用 130 截掉更长的列表；
+    // 仍受视口底边限制（避免遮挡输入框下面的内容）。
+    const PANEL_MAX_HEIGHT = 130;
+    const viewportMax = Math.max(0, viewport.height - top - 8);
+    const maxHeight = Math.min(PANEL_MAX_HEIGHT, viewportMax);
     Object.assign(root.style, {
       position: 'fixed',
       top: `${top}px`,
       left: `${left}px`,
       width: `${PANEL_WIDTH}px`,
-      maxHeight: `${Math.max(120, viewport.height - top - 8)}px`,
+      maxHeight: `${maxHeight}px`,
       zIndex: '2147483000',
     });
   }
@@ -153,7 +169,7 @@ export function mountPanel(
 // ------------------------------------------------------------ 单行
 
 function row(item: OverlayListItem, cb: OverlayCallbacks): HTMLElement {
-  const { account, matchMode } = item;
+  const { account, matchMode, matched } = item;
   const title = account.issuer || account.label;
   const sub = account.issuer && account.label ? account.label : '';
 
@@ -179,11 +195,24 @@ function row(item: OverlayListItem, cb: OverlayCallbacks): HTMLElement {
   );
   row.append(text);
 
+  // 命中标记：matched=true 但不是 subdomain/shared（那些有专属 badge）时
+  // 在右侧加一个 6px 绿色圆点。位置在 row 文本之后、不和 hover 背景冲突
+  // （hover 是给整行的，圆点是绝对定位的子元素）。
+  if (matched && matchMode !== 'subdomain' && matchMode !== 'shared') {
+    row.append(matchDot());
+  }
   if (matchMode === 'subdomain' || matchMode === 'shared') {
     row.append(badge(matchMode));
   }
 
   return row;
+}
+
+function matchDot(): HTMLElement {
+  return h('span', {
+    class: 'xz-match-dot',
+    attrs: { 'aria-label': 'matched', title: '与当前域名匹配' },
+  });
 }
 
 function badge(mode: 'subdomain' | 'shared'): HTMLElement {
