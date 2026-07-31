@@ -151,6 +151,9 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     if (!file) return;
     setError(null);
     setImportPw('');
+    // 文件读取 + 解析（甚至加密分支还要再走 PBKDF2）这一整段都有用户感
+    // 得到的等待时间。先把遮罩挂上，下面的 finally 决定最终落到哪个面板。
+    setMode('busy');
     console.time('[XAuthZee] import:onFileChange');
     try {
       const text = await file.text();
