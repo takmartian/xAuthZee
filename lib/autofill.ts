@@ -6,6 +6,12 @@
  * 标准做法：拿 HTMLInputElement.prototype 上的原生 setter，把值塞进去，
  * 再派发一个 input 事件让 React 同步到 state。
  *
+ * **事件类型**：React Aria v3 的 OTP 组件用 `nativeEvent instanceof
+ * InputEvent` 和 `nativeEvent.data` 来识别真实输入，泛 `Event('input')`
+ * 会被当作 IME 合成或非受信任事件跳过。同时一些 OTP 实现用 keydown 启
+ * 动输入跟踪 / 推进焦点，所以一并派发。composed: true 让事件穿过
+ * Shadow DOM 边界。
+ *
  * **六宫格**：每个格子 maxlength=1，逐格填入并逐格派发事件，让网站
  * 自己的「输入后自动跳下一格」逻辑能正常触发。失败回退到「整段 paste
  * 到第一个格子 + 派发 paste 事件」。
@@ -56,8 +62,26 @@ export function fillInto(el: EventTarget | null, code: string): FillResult {
   return { ok: true, mode: 'single' };
 }
 
-/** 走原生 setter 写值，再派发 input + change。React/Vue 都会同步到 state。 */
+/** 走原生 setter 写值，再派发 keydown + input + change。
+ *
+ * keydown 是给 React Aria 等 OTP 组件的「输入起点」信号；InputEvent
+ * （而非泛 Event）让 onChange 能通过 nativeEvent.data 拿到写入值。
+ */
 function writeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  // keydown 先发 —— 真实按键的时序是 keydown → 字符插入 → input。
+  // OTP 组件的 focus 推进 / 输入跟踪通常挂在 keydown 上。
+  try {
+    el.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        composed: true,
+        key: value.length === 1 ? value : '',
+      }),
+    );
+  } catch {
+    /* 极旧环境没有 KeyboardEvent，忽略 */
+  }
+
   const proto = Object.getPrototypeOf(el);
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
   if (setter) {
@@ -66,7 +90,16 @@ function writeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
     // 极少数环境（极旧的 IE）拿不到 setter，回退到直接赋值
     el.value = value;
   }
-  el.dispatchEvent(new Event('input', { bubbles: true }));
+
+  // InputEvent + data + composed —— React Aria 的 OTP 用 nativeEvent.data
+  // 而非 target.value 读刚写入的值，泛 Event 没有 data 字段。
+  try {
+    el.dispatchEvent(
+      new InputEvent('input', { bubbles: true, composed: true, data: value }),
+    );
+  } catch {
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 

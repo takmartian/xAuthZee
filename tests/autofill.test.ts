@@ -27,11 +27,14 @@ beforeEach(() => {
   g.HTMLInputElement = window.HTMLInputElement;
   g.HTMLTextAreaElement = window.HTMLTextAreaElement;
   g.EventTarget = window.EventTarget;
-  // jsdom 的 Event / ClipboardEvent 是另一个构造器；测试里需要全局替换。
-  // detect / autofill 不直接构造事件，但它们调 dispatchEvent(event)，
-  // 当 event 不是 jsdom 实例时 dispatchEvent 抛 TypeError。
-  // 把 Event 注入到全局，autofill.ts 里 new Event 走的就是 jsdom 那个。
+  // jsdom 的 Event / ClipboardEvent / InputEvent / KeyboardEvent 是另一
+  // 个构造器；测试里需要全局替换。detect / autofill 不直接构造事件，但
+  // 它们调 dispatchEvent(event)，当 event 不是 jsdom 实例时 dispatchEvent
+  // 抛 TypeError。把所有事件构造器注入到全局，autofill.ts 里 new Event
+  // / InputEvent / KeyboardEvent 走的就是 jsdom 那个。
   g.Event = window.Event;
+  g.InputEvent = window.InputEvent;
+  g.KeyboardEvent = window.KeyboardEvent;
   g.ClipboardEvent = window.ClipboardEvent;
   g.DataTransfer = window.DataTransfer;
 });
@@ -173,6 +176,60 @@ describe('fillInto — six-grid', () => {
     assert.equal(cells[0]!.value, '1');
     assert.equal(cells[4]!.value, '5');
     assert.equal(cells[5]!.value, '');
+  });
+});
+
+describe('fillInto — InputEvent 兼容 React Aria OTP', () => {
+  test('派发的是 InputEvent（而非泛 Event），且带 data 字段', () => {
+    // React Aria v3 的 OTP 组件用 nativeEvent instanceof InputEvent 和
+    // nativeEvent.data 判断输入来源；泛 Event 会被当作 IME / 非受信任事件跳过。
+    const el = makeInput({ maxlength: '1' });
+    const observed: { isInputEvent: boolean; data: string | null } = {
+      isInputEvent: false,
+      data: null,
+    };
+    el.addEventListener('input', (e) => {
+      observed.isInputEvent = e instanceof InputEvent;
+      observed.data = (e as InputEvent).data;
+    });
+    fillInto(el, '7');
+    assert.equal(observed.isInputEvent, true);
+    assert.equal(observed.data, '7');
+  });
+
+  test('keydown 在 input 之前派发', () => {
+    // 真实按键时序：keydown → 字符插入 → input。React Aria 用 keydown
+    // 启动输入跟踪 / 推进焦点，所以必须先发。
+    const el = makeInput({ maxlength: '1' });
+    const order: string[] = [];
+    el.addEventListener('keydown', () => order.push('keydown'));
+    el.addEventListener('input', () => order.push('input'));
+    fillInto(el, '3');
+    assert.deepEqual(order, ['keydown', 'input']);
+  });
+
+  test('六宫格：每个格子都派发 InputEvent 且 data 等于该位数字', () => {
+    function makeGrid(n: number): HTMLInputElement[] {
+      const wrap = document.createElement('div');
+      const cells: HTMLInputElement[] = [];
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement('input');
+        c.setAttribute('maxlength', '1');
+        wrap.append(c);
+        cells.push(c);
+      }
+      document.body.append(wrap);
+      return cells;
+    }
+    const cells = makeGrid(6);
+    const observed: string[] = [];
+    cells.forEach((c, idx) => {
+      c.addEventListener('input', (e) => {
+        observed.push(`${idx}:${(e as InputEvent).data}`);
+      });
+    });
+    fillInto(cells[0]!, '123456');
+    assert.deepEqual(observed, ['0:1', '1:2', '2:3', '3:4', '4:5', '5:6']);
   });
 });
 
