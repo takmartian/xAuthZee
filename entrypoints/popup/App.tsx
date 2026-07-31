@@ -54,6 +54,9 @@ export default function App() {
   const [currentHost, setCurrentHost] = useState<string | null>(null);
   // 搜索关键词。空 = 不过滤。
   const [query, setQuery] = useState('');
+  // 待二次确认删除的账号。点「...」→「删除」先把它存这里，弹
+  // confirm dialog 让用户确认 —— 避免误触把账号干掉。
+  const [pendingDelete, setPendingDelete] = useState<Account | null>(null);
 
   // 装 lock runtime + 初次 lockState + 监听变化 + 兜底自动锁
   useEffect(() => {
@@ -161,9 +164,16 @@ export default function App() {
     }
   }, []);
 
-  const handleDelete = useCallback(async (account: Account) => {
-    await vault.remove(account.id);
+  const handleDelete = useCallback((account: Account) => {
+    setPendingDelete(account);
   }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    const id = pendingDelete.id;
+    setPendingDelete(null);
+    await vault.remove(id);
+  }, [pendingDelete]);
 
   const handleBindDomain = useCallback(
     async (account: Account, domain: string) => {
@@ -327,6 +337,14 @@ export default function App() {
         onClose={() => setAddOpen(false)}
         onSave={handleAddSave}
       />
+
+      {pendingDelete && (
+        <DeleteConfirm
+          account={pendingDelete}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void confirmDelete()}
+        />
+      )}
     </div>
   );
 }
@@ -458,4 +476,81 @@ interface ScanStatus {
   kind: 'idle' | 'working' | 'done' | 'error';
   phase?: string;
   message?: string;
+}
+
+/**
+ * 删除账号二次确认。
+ *
+ * 「...」菜单里点「删除」是危险操作 —— 一旦删除就丢了（sync 已写
+ * 也只是把删除同步到其他设备）。强制弹 dialog 让用户多确认一次，
+ * 避免误触。
+ *
+ * Esc 取消、点遮罩取消、Enter 确认（最常见键盘操作）。
+ */
+function DeleteConfirm({
+  account,
+  onCancel,
+  onConfirm,
+}: {
+  account: Account;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  // Esc 关掉、Enter 确认
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        onConfirm();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [onCancel, onConfirm]);
+
+  const name = account.issuer || account.label;
+  const sub = account.issuer && account.label ? account.label : '';
+
+  return (
+    <div
+      className={styles.confirmOverlay}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="delete-confirm-title"
+    >
+      <div
+        className={styles.confirmCard}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p id="delete-confirm-title" className={styles.confirmTitle}>
+          {t('rowDeleteConfirmTitle')}
+        </p>
+        <div className={styles.confirmAccount}>
+          <span className={styles.confirmName}>{name}</span>
+          {sub && <span className={styles.confirmSub}>{sub}</span>}
+        </div>
+        <p className={styles.confirmBody}>{t('rowDeleteConfirmBody')}</p>
+        <div className={styles.confirmActions}>
+          <button
+            ref={(el) => el?.focus()}
+            type="button"
+            className={styles.secondary}
+            onClick={onCancel}
+          >
+            {t('addDialogCancel')}
+          </button>
+          <button
+            type="button"
+            className={styles.danger}
+            onClick={onConfirm}
+          >
+            {t('rowDelete')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

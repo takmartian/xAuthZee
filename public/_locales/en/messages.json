@@ -87,6 +87,12 @@
   "rowDelete": {
     "message": "Remove"
   },
+  "rowDeleteConfirmTitle": {
+    "message": "Delete this account?"
+  },
+  "rowDeleteConfirmBody": {
+    "message": "This cannot be undone. The deletion will sync to your other devices."
+  },
   "rowReorderUp": {
     "message": "Move up"
   },

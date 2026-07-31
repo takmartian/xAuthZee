@@ -87,6 +87,12 @@
   "rowDelete": {
     "message": "删除"
   },
+  "rowDeleteConfirmTitle": {
+    "message": "删除这个账号？"
+  },
+  "rowDeleteConfirmBody": {
+    "message": "删除后无法恢复。设备之间会通过 sync 立即同步。"
+  },
   "rowReorderUp": {
     "message": "上移"
   },
