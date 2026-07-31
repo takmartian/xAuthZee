@@ -1,0 +1,41 @@
+Chrome Web Store Privacy Practices — answers per field (plain text)
+
+Each section is a complete answer ready to paste into the corresponding form field.
+
+
+[1. Why activeTab permission is needed]
+
+The extension only reads the current tab's URL when the user actively clicks the toolbar icon or the scan button, and only captures a QR code screenshot on that explicit click. We use activeTab instead of an all_urls host permission to honor the principle of least privilege: the extension does not passively monitor or read any tab; it only works in the moment of explicit user action. Reading the current URL enables the "bind current site" feature (so the matching account appears at the top of the panel when the user visits that site) and the QR capture triggered by the scan button.
+
+[2. Why alarms permission is needed]
+
+The extension uses chrome.alarms to schedule the master-password auto-lock timer. When the user enables master-password encryption and picks an auto-lock timeout (5/15/30/60 minutes or never), the extension registers an alarm named xz-auto-lock that, when it fires, clears the derived key from session storage and switches the lock state back to locked. alarms is the browser-native scheduling API and is more reliable than setTimeout because it can fire even after the Service Worker has been evicted. The extension uses alarms for nothing else.
+
+[3. Why idle permission is needed]
+
+The extension listens to chrome.idle.onStateChanged and only reacts to the 'locked' state by immediately locking the extension. When the user's operating system is locked (macOS lock screen, Windows Win+L, Linux lock screen), the browser broadcasts this event; the extension receives it, immediately clears the session key, and switches the state to locked. This ensures that after the user walks away, the 2FA keys are not left in memory in the unlocked state even if the browser stays open. The idle event itself sends no data outside the extension.
+
+[4. Why scripting permission is needed]
+
+When the user clicks the scan button, the extension calls chrome.scripting.executeScript to inject a content script into the current tab. That content script displays a QR code region-selector overlay that lets the user drag a rectangle around the QR on the page, which is then decoded with jsQR. The injection is on-demand (only after a user click, never running in the background on every tab), and the injected script's lifetime is limited to the scan interaction.
+
+[5. Why storage permission is needed]
+
+The extension uses chrome.storage.sync to persist all user data: account list (issuer, label, secret, algorithm, digits, period, bound domains), encryption records (salt, verifier ciphertext, KDF parameters), and preferences (floating panel toggle, broad detection, disabled hosts list, auto-lock timeout). sync means the data is automatically available on every device the user signs into the same Google account on, through the browser's own sync mechanism — the extension itself never contacts an external server. The extension also uses chrome.storage.session to hold the derived master-password key while unlocked; session storage is not synced and is cleared when the browser closes. Without storage, the extension could not save any user data.
+
+[6. Why remote code is needed (or not)]
+
+This extension does not use any remote code. All JavaScript is bundled in the zip file uploaded to the store and verified by Chrome's signing pipeline. The WXT build statically bundles every source file (lib, components, entrypoints) into the extension at build time. There is no eval, no dynamic import of external scripts, no WebAssembly module loading, no fetching of resources from a CDN or any external domain. Opening the extension's source shows the complete set of executable code.
+
+[7. Why host permission is needed]
+
+The extension does not request any host permission (no <all_urls>, no specific domain pattern). We use the activeTab permission instead, which grants the extension a temporary, on-click access to the current tab only. The Chrome MV3 documentation explicitly recommends activeTab over host permissions for on-demand access scenarios, which is exactly what this extension needs: scan button, bind current site, OTP panel on focus — every site access happens in the moment of explicit user action.
+
+[8. Single purpose description]
+
+The single purpose of this extension is TOTP (Time-based One-Time Password, RFC 6238) code management: securely store the user's 2FA account secrets in the browser, surface the matching code as a small panel when the user visits a bound site, and fill the code into the page's OTP input with a single click. The extension does nothing else: no password management, no notes, no contact sync, no social sharing, no ad blocking, no page modification, no form auto-fill (apart from the single specialized case of OTP input fields). Every feature is centered on the TOTP use case.
+
+
+[9. Data usage compliance]
+
+I confirm that this extension complies with the Chrome Web Store Developer Program Policies. The extension does not collect, use, or transmit any user personal data: all account data lives in chrome.storage.sync on the user's device, and is synced across the user's own devices through the browser's own sync mechanism; the extension itself never contacts any external server. There is no analytics, no tracking, no advertising, no crash reporting, no third-party SDK. No data is sold or shared with any third party.

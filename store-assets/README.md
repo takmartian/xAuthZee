@@ -15,8 +15,10 @@ npm run zip:edge           # 打包 Edge zip
 | 文件 / 目录                     | 用途                                  |
 | ------------------------------- | ------------------------------------- |
 | `privacy.md`                    | 隐私声明（两家商店都要求引用 URL）     |
-| `listing/description-en.md`     | 英文 store listing（长 + 短描述）      |
-| `listing/description-zh.md`     | 中文 store listing                     |
+| `listing/description-en.txt`    | 英文 store listing（纯文本）           |
+| `listing/description-zh.txt`    | 中文 store listing（纯文本）           |
+| `listing/privacy-practices-en.txt` | Chrome 隐私权实务规范 8 字段答案（EN） |
+| `listing/privacy-practices-zh.txt` | Chrome 隐私权实务规范 8 字段答案（ZH） |
 | `promo/small-440x280.png`       | 小型 promo tile（Chrome 必填）         |
 | `promo/large-920x680.png`       | 大型 promo tile（Chrome 必填）         |
 | `promo/marquee-1400x560.png`    | 横幅 promo tile（Chrome 必填）         |
@@ -34,8 +36,8 @@ npm run zip:edge           # 打包 Edge zip
 1. **Package** → 上传 `xauthzee-<v>-chrome.zip`
 2. **Store listing**：
    - Name: `XAuthZee` （从 `__MSG_extName__` 自动按用户语言切）
-   - Summary: ≤ 132 字符 —— 用 `listing/description-en.md` 顶部的"短描述"
-   - Description: 用 `listing/description-en.md` 的"长描述"全文
+   - Summary: ≤ 132 字符 —— 用 `listing/description-en.txt` 顶部的"短描述"
+   - Description: 用 `listing/description-en.txt` 的"长描述"全文（纯文本，不要带 markdown）
    - Category: `Productivity`
    - Language: English (default) + Simplified Chinese
 3. **Graphic assets**：
@@ -44,16 +46,16 @@ npm run zip:edge           # 打包 Edge zip
    - Large promo tile: `promo/large-920x680.png` ✓
    - Marquee promo tile: `promo/marquee-1400x560.png` ✓
    - Screenshots: 至少 1 张，最多 5 张 —— `screenshots/*.png` 4 张
-4. **Privacy practices**（必填）：
-   - Single purpose: "TOTP authenticator for managing one-time password codes"
-   - Permission `storage`: "Stores accounts locally and syncs via browser"
-   - Permission `activeTab`: "Reads current tab URL on user click to bind host or capture QR"
-   - Permission `scripting`: "Injects QR region-selector content script on user action"
-   - Permission `alarms`: "Schedules master-password auto-lock timer"
-   - Permission `idle`: "Detects system lock to immediately lock the extension"
-   - Data usage: 全部 "No, this extension does not collect, use, or transfer any of these"
-   - Host permission: 不需要（用 activeTab 代替）
-   - Remote code: No
+4. **Privacy practices**（必填，复制粘贴 `listing/privacy-practices-zh.txt` 或 `listing/privacy-practices-en.txt` 各字段回答）：
+   - Single purpose: 用 [1.8] 单一用途说明 段
+   - Permission `activeTab`: 用 [1.1] 段
+   - Permission `alarms`: 用 [1.2] 段
+   - Permission `idle`: 用 [1.3] 段
+   - Permission `scripting`: 用 [1.4] 段
+   - Permission `storage`: 用 [1.5] 段
+   - Remote code: 用 [1.6] 段（回答"不使用远端代码"）
+   - Host permission: 用 [1.7] 段（回答"不申请 host permission，用 activeTab 代替"）
+   - Data usage: 全部勾 "No, this extension does not collect, use, or transfer any of these"
 5. **Privacy policy**：
    - 填 `privacy.md` 全文（把 md 渲染到能公网访问的 URL 填入；或建一个 GitHub Pages）
    - 文本：见 `privacy.md`
