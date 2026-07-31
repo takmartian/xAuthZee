@@ -48,6 +48,62 @@
   color: var(--xz-text);
 }
 
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--xz-border);
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--xz-text-dim);
+  pointer-events: none;
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  width: 100%;
+  padding: 6px 10px 6px 30px;
+  border: 1px solid var(--xz-border);
+  border-radius: var(--xz-radius-sm);
+  background: var(--xz-bg-subtle);
+  color: var(--xz-text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.searchInput:focus {
+  border-color: var(--xz-accent);
+  background: var(--xz-bg);
+}
+
+.searchInput::placeholder {
+  color: var(--xz-text-dim);
+}
+
+/* 去掉浏览器自带的 type=search 清除按钮，我们用 Esc 清空 */
+.searchInput::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.searchCount {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  font-family: var(--xz-mono);
+  font-size: 11px;
+  color: var(--xz-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 .list {
   /* Chrome popup 默认上限约 600px。账号多时列表内嵌滚动而不是
      把 footer 推出可见区。 */

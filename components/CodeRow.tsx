@@ -4,22 +4,17 @@ import type { Account } from '@/lib/model';
 import { generateCode, groupCode } from '@/lib/totp';
 import { isSharedHost, normalizeHost, registrableDomain } from '@/lib/domain';
 import { Ring } from './Ring';
-import { ChevronDownIcon, ChevronUpIcon, MoreIcon, TrashIcon } from './Icon';
+import { MoreIcon, TrashIcon } from './Icon';
 import styles from './CodeRow.module.css';
 
 export interface CodeRowProps {
   account: Account;
   /** 当前时间（毫秒），由父组件每帧重算并传入 —— 倒计时环靠这个更新 */
   now: number;
-  /** 是否当前 popup 第一个条目（在某些 UI 里用于去边角） */
-  isFirst: boolean;
-  isLast: boolean;
   /** 当前 tab 的 host，null 表示拿不到（菜单里「绑定当前网站」会变成只读提示） */
   currentHost: string | null;
   onCopy: (account: Account) => void;
   onDelete: (account: Account) => void;
-  onMoveUp: (account: Account) => void;
-  onMoveDown: (account: Account) => void;
   /** 绑一个域名到账号（追加去重） */
   onBindDomain: (account: Account, domain: string) => void;
   /** 从账号里删一个绑定 */
@@ -29,13 +24,9 @@ export interface CodeRowProps {
 function CodeRowInner({
   account,
   now,
-  isFirst,
-  isLast,
   currentHost,
   onCopy,
   onDelete,
-  onMoveUp,
-  onMoveDown,
   onBindDomain,
   onUnbindDomain,
 }: CodeRowProps) {
@@ -94,26 +85,6 @@ function CodeRowInner({
       </button>
 
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.iconButton}
-          disabled={isFirst}
-          onClick={() => onMoveUp(account)}
-          title={t('rowReorderUp')}
-          aria-label={t('rowReorderUp')}
-        >
-          <ChevronUpIcon />
-        </button>
-        <button
-          type="button"
-          className={styles.iconButton}
-          disabled={isLast}
-          onClick={() => onMoveDown(account)}
-          title={t('rowReorderDown')}
-          aria-label={t('rowReorderDown')}
-        >
-          <ChevronDownIcon />
-        </button>
         <RowMenu
           account={account}
           currentHost={currentHost}

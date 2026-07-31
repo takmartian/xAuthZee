@@ -6,7 +6,7 @@ import type { Account } from '@/lib/model';
 import { anyMatch } from '@/lib/domain';
 import { CodeRow } from '@/components/CodeRow';
 import { AddDialog } from '@/components/AddDialog';
-import { QrIcon, KeyboardIcon } from '@/components/Icon';
+import { QrIcon, KeyboardIcon, SearchIcon } from '@/components/Icon';
 import styles from './App.module.css';
 
 /**
@@ -22,11 +22,12 @@ import styles from './App.module.css';
  *    不维护本地副本 —— vault 内部已经做了乐观更新，本地写入立刻
  *    可见，远程写入通过 storage.onChanged 触发回调。
  *
- * 3. 点击行复制到剪贴板。fill 到当前标签页的输入框（M7）做完后再
- *    升级为「先尝试填充，失败回退到复制」。
+ * 3. 点击行：先尝试填充当前 tab 上的 OTP 输入框，失败回退到复制。
  *
- * 4. 重排序目前用上下箭头按钮。拖拽是更好的 UX，但 M5 把框选 UI
- *    做完之后再统一处理这块 —— 一致性比零散优化更重要。
+ * 4. 搜索框：popup 一打开就自动 focus —— 用户最常见的操作是「打开找
+ *    第一个账号的验证码」，让键盘直接可用。搜索范围覆盖 issuer + label
+ *    子串匹配，大小写不敏感。搜索状态下命中域名绑定的账号不再置顶
+ *    （用户既然在搜，就不再按位置组织）。
  */
 export default function App() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -36,6 +37,8 @@ export default function App() {
   // 当前标签页的 host，给菜单里「绑定当前网站」用。null 表示没有
   // （比如 popup 是从 action 菜单里打开的，没有具体 tab）。
   const [currentHost, setCurrentHost] = useState<string | null>(null);
+  // 搜索关键词。空 = 不过滤。
+  const [query, setQuery] = useState('');
 
   // 初次加载 + 监听跨设备 / 跨 popup 的变更
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function App() {
     return () => window.clearInterval(id);
   }, []);
 
-  // 拿当前 tab 的 host，给 CodeRow 的「绑定当前网站」菜单用
+  // 拿当前 tab 的 host
   useEffect(() => {
     let cancelled = false;
     void browser.tabs
@@ -106,8 +109,7 @@ export default function App() {
 
     if (filled) return;
 
-    // 2) 兜底：复制到剪贴板。navigator.clipboard 在 popup 上下文里需要
-    //    focus，少数场景下（刚切回 popup 的瞬间）可能失败 —— 静默。
+    // 2) 兜底：复制到剪贴板
     try {
       await navigator.clipboard.writeText(code);
     } catch {
@@ -136,22 +138,6 @@ export default function App() {
     [],
   );
 
-  const handleMove = useCallback(
-    async (account: Account, direction: 'up' | 'down') => {
-      const ids = accounts.map((a) => a.id);
-      const i = ids.indexOf(account.id);
-      if (i < 0) return;
-      const j = direction === 'up' ? i - 1 : i + 1;
-      if (j < 0 || j >= ids.length) return;
-      const a = ids[i]!;
-      const b = ids[j]!;
-      ids[i] = b;
-      ids[j] = a;
-      await vault.reorder(ids);
-    },
-    [accounts],
-  );
-
   const handleScan = useCallback(async () => {
     setScanStatus({ kind: 'working', phase: '框选二维码…' });
     try {
@@ -160,15 +146,12 @@ export default function App() {
       if (!tab?.id || tab.windowId === undefined) {
         throw new Error('popup 找不到当前标签页');
       }
-      // 先发请求，再立刻关掉 popup —— 整个扫描流程由 content script 接管，
-      // 用户在页面里框选就行。popup 关掉后 activeTab 权限仍然有效，
-      // captureVisibleTab 也能照常工作。
       const res = browser.runtime.sendMessage({
         type: 'm2-scan-qr',
         tabId: tab.id,
         windowId: tab.windowId,
       });
-      void res; // 不等响应 —— 关 popup
+      void res;
       window.close();
     } catch (err) {
       setScanStatus({
@@ -195,44 +178,60 @@ export default function App() {
   const scanning = scanStatus.kind === 'working';
 
   /**
-   * 把命中当前 host 的账号提到顶部，其余保持 index 原顺序。
-   * 这里不复用 vault.reorder —— 那会持久化到 storage.sync，对一个
-   * 临时视图排序来说代价太高。viewed 顺序只在这一份 accounts 上生效。
+   * 搜索 + 域名命中混合排序：
+   *  - query 非空：只过滤，不做域名置顶（用户既然在搜，就按搜索结果顺序）
+   *  - query 空：命中当前 host 的账号提到顶部
    */
-  const sortedAccounts = useMemo(() => {
-    if (!currentHost) return accounts;
+  const visibleAccounts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? accounts.filter((a) => {
+          const issuer = a.issuer.toLowerCase();
+          const label = a.label.toLowerCase();
+          return issuer.includes(q) || label.includes(q);
+        })
+      : accounts;
+
+    if (q || !currentHost) return filtered;
+
     const hit: Account[] = [];
     const rest: Account[] = [];
-    for (const a of accounts) {
+    for (const a of filtered) {
       if (anyMatch(currentHost, a.domains).hit) hit.push(a);
       else rest.push(a);
     }
     return [...hit, ...rest];
-  }, [accounts, currentHost]);
+  }, [accounts, currentHost, query]);
 
   return (
     <div className={styles.root}>
       <Header />
+      <SearchBar
+        value={query}
+        onChange={setQuery}
+        totalCount={accounts.length}
+        matchedCount={visibleAccounts.length}
+      />
 
       <div className={styles.list} role="list">
-        {sortedAccounts.length === 0 ? (
+        {visibleAccounts.length === 0 ? (
           <div className={styles.empty}>
-            <p className={styles.emptyTitle}>{t('popupEmpty')}</p>
-            <p className={styles.emptyHint}>{t('popupEmptyHint')}</p>
+            <p className={styles.emptyTitle}>
+              {query ? t('popupSearchEmpty') : t('popupEmpty')}
+            </p>
+            <p className={styles.emptyHint}>
+              {query ? t('popupSearchEmptyHint', query) : t('popupEmptyHint')}
+            </p>
           </div>
         ) : (
-          sortedAccounts.map((account, i) => (
+          visibleAccounts.map((account) => (
             <CodeRow
               key={account.id}
               account={account}
               now={now}
-              isFirst={i === 0}
-              isLast={i === sortedAccounts.length - 1}
               currentHost={currentHost}
               onCopy={handleCopy}
               onDelete={handleDelete}
-              onMoveUp={(a) => void handleMove(a, 'up')}
-              onMoveDown={(a) => void handleMove(a, 'down')}
               onBindDomain={(a, d) => void handleBindDomain(a, d)}
               onUnbindDomain={(a, d) => void handleUnbindDomain(a, d)}
             />
@@ -284,6 +283,59 @@ function Header() {
   );
 }
 
+/**
+ * 搜索框。打开 popup 时自动 focus，让用户直接打字查找。
+ */
+function SearchBar({
+  value,
+  onChange,
+  totalCount,
+  matchedCount,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  totalCount: number;
+  matchedCount: number;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  // popup 一打开就 focus —— 用户最常见的动作是「直接打几个字找第一个」
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+
+  return (
+    <div className={styles.searchWrap}>
+      <span className={styles.searchIcon} aria-hidden>
+        <SearchIcon />
+      </span>
+      <input
+        ref={ref}
+        type="search"
+        className={styles.searchInput}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t('popupSearchPlaceholder')}
+        // Esc 清空 —— 跟浮层 Esc 关掉的语义一致
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && value) {
+            e.preventDefault();
+            e.stopPropagation();
+            onChange('');
+          }
+        }}
+        spellCheck={false}
+        autoComplete="off"
+      />
+      {value && (
+        <span className={styles.searchCount}>
+          {matchedCount}/{totalCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
 interface FooterProps {
   scanning: boolean;
   scanStatus: ScanStatus;
@@ -292,8 +344,6 @@ interface FooterProps {
 }
 
 function Footer({ scanning, scanStatus, onScan, onManualAdd }: FooterProps) {
-  const scanningRef = useRef<HTMLDivElement>(null);
-
   return (
     <footer className={styles.footer}>
       <button
@@ -312,7 +362,6 @@ function Footer({ scanning, scanStatus, onScan, onManualAdd }: FooterProps) {
         <KeyboardIcon />
         <span>{t('actionManualAdd')}</span>
       </button>
-      <div ref={scanningRef} className={styles.footerSentinel} aria-hidden />
     </footer>
   );
 }

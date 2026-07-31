@@ -101,3 +101,12 @@ export function MoreIcon(p: IconProps) {
     </svg>
   );
 }
+
+export function SearchIcon(p: IconProps) {
+  return (
+    <svg {...svgProps(p)}>
+      <circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}

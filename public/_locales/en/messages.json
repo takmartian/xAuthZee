@@ -162,5 +162,22 @@
   },
   "actionAdd": {
     "message": "Add"
+  },
+  "popupSearchPlaceholder": {
+    "message": "Search accounts…",
+    "description": "Placeholder of the popup search input"
+  },
+  "popupSearchEmpty": {
+    "message": "No matches"
+  },
+  "popupSearchEmptyHint": {
+    "message": "Nothing matches $QUERY$.",
+    "description": "Shown in the popup when the search query has zero matches",
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "git"
+      }
+    }
   }
 }

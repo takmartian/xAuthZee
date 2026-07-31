@@ -162,5 +162,22 @@
   },
   "actionAdd": {
     "message": "添加"
+  },
+  "popupSearchPlaceholder": {
+    "message": "搜索账号…",
+    "description": "popup 搜索框的占位文案"
+  },
+  "popupSearchEmpty": {
+    "message": "没找到匹配的账号"
+  },
+  "popupSearchEmptyHint": {
+    "message": "没有匹配 $QUERY$ 的账号。",
+    "description": "搜索无结果时的二级提示",
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "git"
+      }
+    }
   }
 }
