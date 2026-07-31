@@ -23,6 +23,24 @@ export const MAX_DOMAINS = 16;
  */
 export const ENC_PREFIX = 'enc1:';
 
+/**
+ * 启用主密码加密时写入 storage.sync 的 `sec` 记录。
+ *
+ * - salt / iter 用于 PBKDF2 派生 key
+ * - verifyIv / verifyCiphertext 是 verifier 明文加密后的密文；
+ *   unlock 时尝试用派生 key 解密它，能解出 VERIFIER_PLAINTEXT 就算密码正确
+ */
+export interface SecRecord {
+  kdf: 'PBKDF2-SHA256';
+  iter: number;
+  /** base64 */
+  salt: string;
+  /** base64 */
+  verifyIv: string;
+  /** base64 */
+  verifyCiphertext: string;
+}
+
 export interface Account {
   id: string;
   /** 服务方名称，如 GitHub。可能为空 */

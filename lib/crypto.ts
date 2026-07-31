@@ -24,7 +24,7 @@ import { ENC_PREFIX } from './model.ts';
  * Uint8Array → base64 字符串。无 padding（不补 '='），这样序列化后长度
  * 紧凑且不会让 Base32 校验函数误判。
  */
-function bytesToB64(bytes: Uint8Array): string {
+export function bytesToB64(bytes: Uint8Array): string {
   if (typeof btoa === 'function') {
     let bin = '';
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
@@ -34,7 +34,7 @@ function bytesToB64(bytes: Uint8Array): string {
 }
 
 /** base64 字符串 → Uint8Array。无 padding 也接受 */
-function b64ToBytes(b64: string): Uint8Array {
+export function b64ToBytes(b64: string): Uint8Array {
   if (typeof atob === 'function') {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
