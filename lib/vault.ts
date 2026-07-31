@@ -237,6 +237,27 @@ export function createVault(area: StorageArea, options: VaultOptions = {}) {
     );
   }
 
+  /**
+   * 批量导入：每条记录自带 id；不在现有 index 中的 id 追加到末尾，存在的保留
+   * 位置。这是 M9 JSON 导入的写入入口。不会去重 —— 重复 id 会被直接覆盖。
+   *
+   * 故意不复用 add：add 会生成新 id，而导入需要保留原 id。同理不复用 update：
+   * update 读不到当前记录时直接 return。
+   */
+  async function importRecords(records: readonly Account[]): Promise<void> {
+    const raw = await snapshot();
+    const order = Array.isArray(raw[K_INDEX]) ? [...(raw[K_INDEX] as string[])] : [];
+    const seen = new Set(order);
+    for (const r of records) {
+      stage(acctKey(r.id), r);
+      if (!seen.has(r.id)) {
+        order.push(r.id);
+        seen.add(r.id);
+      }
+    }
+    stage(K_INDEX, order);
+  }
+
   /** 重排序只改 index 一条，不动任何账号记录 */
   async function reorder(ids: string[]): Promise<void> {
     stage(K_INDEX, [...ids]);
@@ -279,6 +300,7 @@ export function createVault(area: StorageArea, options: VaultOptions = {}) {
     update,
     remove,
     reorder,
+    importRecords,
     getPrefs,
     setPrefs,
     flush,

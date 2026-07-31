@@ -291,5 +291,57 @@
         "example": "already enabled"
       }
     }
+  },
+  "optionsTransferTitle": {
+    "message": "导入 / 导出"
+  },
+  "optionsTransferSubtitle": {
+    "message": "把全部账号和偏好导出为 JSON 文件，或从 JSON 恢复。"
+  },
+  "optionsTransferLocked": {
+    "message": "已锁定。解锁后才能导入或导出。"
+  },
+  "optionsExportButton": {
+    "message": "导出全部"
+  },
+  "optionsImportButton": {
+    "message": "从文件导入"
+  },
+  "optionsExportConfirmMsg": {
+    "message": "检测到当前为主密码加密态。导出的文件将是明文 secret —— 任何人拿到文件都能用。请确认文件存放位置安全。"
+  },
+  "optionsImportPreview": {
+    "message": "文件含 $TOTAL$ 个账号：$NEW$ 个新、$OVERLAP$ 个 id 与现有重复。",
+    "placeholders": {
+      "total": { "content": "$1" },
+      "new": { "content": "$2" },
+      "overlap": { "content": "$3" }
+    }
+  },
+  "optionsImportModeLabel": {
+    "message": "遇到重复 id 时："
+  },
+  "optionsImportModeMerge": {
+    "message": "保留现有"
+  },
+  "optionsImportModeOverwrite": {
+    "message": "用文件覆盖"
+  },
+  "optionsImportModeSkip": {
+    "message": "跳过"
+  },
+  "optionsImportWill": {
+    "message": "预计：新增 $ADD$ / 覆盖 $UPDATE$ / 跳过 $SKIP$ 个。",
+    "placeholders": {
+      "add": { "content": "$1" },
+      "update": { "content": "$2" },
+      "skip": { "content": "$3" }
+    }
+  },
+  "optionsImportWorking": {
+    "message": "正在导入…"
+  },
+  "optionsImportPartial": {
+    "message": "部分账号导入失败："
   }
 }

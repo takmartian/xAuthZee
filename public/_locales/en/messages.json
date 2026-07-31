@@ -291,5 +291,57 @@
         "example": "already enabled"
       }
     }
+  },
+  "optionsTransferTitle": {
+    "message": "Import / Export"
+  },
+  "optionsTransferSubtitle": {
+    "message": "Export all accounts and preferences to a JSON file, or restore from one."
+  },
+  "optionsTransferLocked": {
+    "message": "Locked. Unlock before importing or exporting."
+  },
+  "optionsExportButton": {
+    "message": "Export all"
+  },
+  "optionsImportButton": {
+    "message": "Import from file"
+  },
+  "optionsExportConfirmMsg": {
+    "message": "Master password encryption is enabled. The export will contain plaintext secrets — anyone with the file can use them. Please store it safely."
+  },
+  "optionsImportPreview": {
+    "message": "File has $TOTAL$ accounts: $NEW$ new and $OVERLAP$ with IDs that already exist.",
+    "placeholders": {
+      "total": { "content": "$1" },
+      "new": { "content": "$2" },
+      "overlap": { "content": "$3" }
+    }
+  },
+  "optionsImportModeLabel": {
+    "message": "When an ID already exists:"
+  },
+  "optionsImportModeMerge": {
+    "message": "Keep existing"
+  },
+  "optionsImportModeOverwrite": {
+    "message": "Overwrite with file"
+  },
+  "optionsImportModeSkip": {
+    "message": "Skip"
+  },
+  "optionsImportWill": {
+    "message": "Will: add $ADD$ / overwrite $UPDATE$ / skip $SKIP$.",
+    "placeholders": {
+      "add": { "content": "$1" },
+      "update": { "content": "$2" },
+      "skip": { "content": "$3" }
+    }
+  },
+  "optionsImportWorking": {
+    "message": "Importing…"
+  },
+  "optionsImportPartial": {
+    "message": "Some accounts failed to import: "
   }
 }

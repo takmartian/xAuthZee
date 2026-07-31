@@ -288,3 +288,64 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* M9：导入导出 section */
+
+.transferActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hiddenFile {
+  display: none;
+}
+
+.transferPanel {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transferWarn {
+  color: #b85c00;
+  font-size: 12.5px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.transferSummary {
+  margin: 0;
+  font-size: 12.5px;
+  opacity: 0.85;
+  line-height: 1.5;
+}
+
+.importModes {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.importModes legend {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+
+.importModes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}

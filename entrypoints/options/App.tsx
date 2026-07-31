@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '@/lib/i18n';
 import { vault, watchVault } from '@/lib/storage';
 import { DEFAULT_PREFS, type Account, type Prefs } from '@/lib/model';
 import { CloseIcon } from '@/components/Icon';
 import { SecuritySection } from './SecuritySection';
+import { TransferSection } from './TransferSection';
 import { installLockRuntime } from '@/lib/lock-runtime';
 import { getLockState, onLockChange, lock as doLock, type LockState } from '@/lib/lock';
 import styles from './App.module.css';
@@ -68,6 +69,12 @@ export default function App() {
       domains: account.domains.filter((d) => d !== domain),
     });
   };
+
+  // M9：导入完成后由 TransferSection 调一次，重新拉 vault 状态
+  const reloadFromVault = useCallback(() => {
+    void vault.list().then((list) => setAccounts(list));
+    void vault.getPrefs().then((p) => setPrefs(p));
+  }, []);
 
   const updatePref = async <K extends keyof Prefs>(key: K, value: Prefs[K]) => {
     setPrefs((p) => ({ ...p, [key]: value }));
@@ -183,6 +190,14 @@ export default function App() {
         prefs={prefs}
         onLockNow={() => void doLock()}
         onPrefsChange={(patch) => void updatePref('lockMinutes', patch.lockMinutes ?? prefs.lockMinutes)}
+      />
+
+      {/* M9：JSON 导入导出 */}
+      <TransferSection
+        accounts={accounts}
+        prefs={prefs}
+        lockState={lockState}
+        onChanged={reloadFromVault}
       />
     </div>
   );
