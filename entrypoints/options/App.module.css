@@ -418,3 +418,23 @@
   font-size: 13px;
   font-weight: 500;
 }
+
+.gaTextarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--xz-border);
+  border-radius: 6px;
+  background: var(--xz-bg-input);
+  color: var(--xz-text);
+  font: var(--xz-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.gaTextarea:focus {
+  outline: 2px solid rgba(64, 158, 255, 0.5);
+  outline-offset: 0;
+  border-color: transparent;
+}

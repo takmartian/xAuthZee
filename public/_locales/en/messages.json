@@ -387,5 +387,36 @@
       "update": { "content": "$2" },
       "skip": { "content": "$3" }
     }
+  },
+  "optionsGaButton": {
+    "message": "Import from Google Authenticator"
+  },
+  "optionsGaIntro": {
+    "message": "Paste the migration link exported from Google Authenticator, or upload its QR code image. The link starts with otpauth-migration://."
+  },
+  "optionsGaParseUrl": {
+    "message": "Parse link"
+  },
+  "optionsGaUploadImage": {
+    "message": "Upload QR image"
+  },
+  "optionsGaEmpty": {
+    "message": "Please paste a migration link"
+  },
+  "optionsGaQrNotFound": {
+    "message": "No QR code found in the image"
+  },
+  "optionsGaFromGa": {
+    "message": "From Google Authenticator: $COUNT$ TOTP accounts (of $TOTAL$ total records)",
+    "placeholders": {
+      "count": { "content": "$1" },
+      "total": { "content": "$2" }
+    }
+  },
+  "optionsGaSkipped": {
+    "message": "skipped $COUNT$ (HOTP / MD5)",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }

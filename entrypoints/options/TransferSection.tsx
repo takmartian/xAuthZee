@@ -18,6 +18,7 @@ import { t } from '@/lib/i18n';
 import { vault } from '@/lib/storage';
 import { revealAccounts, stripSecrets } from '@/lib/secrets';
 import { getDerivedKey } from '@/lib/lock-runtime';
+import { decodeImageData } from '@/lib/qr/decode';
 import {
   buildExportPayload,
   buildEncryptedExport,
@@ -30,6 +31,7 @@ import {
   type ExportPayload,
   type EncryptedExportPayload,
 } from '@/lib/transfer';
+import { parseGaMigrationUrl, GaMigrationError, type GaMigrationResult } from '@/lib/ga-migration';
 import type { Account, Prefs } from '@/lib/model';
 import type { LockState } from '@/lib/lock';
 import styles from './App.module.css';
@@ -51,6 +53,7 @@ type Mode =
   | 'import-preview'
   | 'import-success'
   | 'import-error'
+  | 'import-ga'
   | 'busy';
 
 interface ImportResultInfo {
@@ -71,7 +74,10 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
   const [importPw, setImportPw] = useState('');
   const [importMode, setImportMode] = useState<ImportMode>('merge');
   const [importResult, setImportResult] = useState<ImportResultInfo | null>(null);
+  const [gaUrl, setGaUrl] = useState('');
+  const [gaInfo, setGaInfo] = useState<{ skipped: GaMigrationResult['skipped']; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const gaFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const close = useCallback(() => {
     setMode('idle');
@@ -83,8 +89,105 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
     setExportPwConfirm('');
     setImportPw('');
     setImportResult(null);
+    setGaUrl('');
+    setGaInfo(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (gaFileInputRef.current) gaFileInputRef.current.value = '';
   }, []);
+
+  // --- Google Authenticator 迁移
+
+  /**
+   * 把 GA 解析结果转成 ExportPayload（带 prefs 默认值）。
+   * GA 迁移没有 prefs，prefsChanged 由 UI 提示「不影响偏好」让用户决定。
+   */
+  const gaToExportPayload = useCallback(
+    (ga: GaMigrationResult, currentPrefs: Prefs): ExportPayload => {
+      // ExportPayload 必填 fields；prefs 留空让 applyImport 看到 prefsChanged
+      // = false（payload.prefs === ctx.currentPrefs → 不写）
+      return {
+        version: 1,
+        schema: 'xauthzee-accounts',
+        exportedAt: new Date().toISOString(),
+        app: { name: 'XAuthZee', version: '0.1.0' },
+        accounts: ga.accounts,
+        prefs: currentPrefs,
+      };
+    },
+    [],
+  );
+
+  const handleGaUrlSubmit = useCallback(() => {
+    const url = gaUrl.trim();
+    if (!url) {
+      setError(t('optionsGaEmpty'));
+      return;
+    }
+    setMode('busy');
+    let ga: GaMigrationResult;
+    try {
+      ga = parseGaMigrationUrl(url);
+    } catch (e) {
+      setError(e instanceof GaMigrationError ? e.message : (e instanceof Error ? e.message : String(e)));
+      setMode('import-ga');
+      return;
+    }
+    setPendingPlain(gaToExportPayload(ga, prefs));
+    setGaInfo({ skipped: ga.skipped, total: ga.total });
+    setMode('import-preview');
+  }, [gaUrl, prefs, gaToExportPayload]);
+
+  const handleGaFile = useCallback(async (file: File) => {
+    setError(null);
+    setMode('busy');
+    try {
+      const url = URL.createObjectURL(file);
+      let text: string | null = null;
+      try {
+        const img = new Image();
+        await new Promise<void>((res, rej) => {
+          img.onload = () => res();
+          img.onerror = () => rej(new Error('image load failed'));
+          img.src = url;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('canvas 2d context unavailable');
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        text = decodeImageData(data);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      if (!text) {
+        setError(t('optionsGaQrNotFound'));
+        setMode('import-ga');
+        return;
+      }
+      let ga: GaMigrationResult;
+      try {
+        ga = parseGaMigrationUrl(text);
+      } catch (e) {
+        setError(e instanceof GaMigrationError ? e.message : (e instanceof Error ? e.message : String(e)));
+        setMode('import-ga');
+        return;
+      }
+      setPendingPlain(gaToExportPayload(ga, prefs));
+      setGaInfo({ skipped: ga.skipped, total: ga.total });
+      setMode('import-preview');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setMode('import-ga');
+    }
+  }, [prefs, gaToExportPayload]);
+
+  const onGaFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    void handleGaFile(file);
+  }, [handleGaFile]);
 
   // --- 导出
 
@@ -297,12 +400,27 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
         >
           {t('optionsImportButton')}
         </button>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => setMode('import-ga')}
+          disabled={disabled}
+        >
+          {t('optionsGaButton')}
+        </button>
         <input
           ref={fileInputRef}
           type="file"
           accept="application/json,.json"
           className={styles.hiddenFile}
           onChange={(e) => void onFileChange(e)}
+        />
+        <input
+          ref={gaFileInputRef}
+          type="file"
+          accept="image/*"
+          className={styles.hiddenFile}
+          onChange={onGaFileChange}
         />
       </div>
 
@@ -414,6 +532,40 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
         </form>
       )}
 
+      {mode === 'import-ga' && (
+        <div className={styles.transferPanel}>
+          <p className={styles.transferSummary}>{t('optionsGaIntro')}</p>
+          <textarea
+            className={styles.gaTextarea}
+            value={gaUrl}
+            onChange={(e) => setGaUrl(e.target.value)}
+            placeholder="otpauth-migration://offline?data=..."
+            rows={4}
+            spellCheck={false}
+          />
+          <div className={styles.formActions}>
+            <button type="button" className={styles.secondaryButton} onClick={close}>
+              {t('addDialogCancel')}
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={handleGaUrlSubmit}
+            >
+              {t('optionsGaParseUrl')}
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => gaFileInputRef.current?.click()}
+            >
+              {t('optionsGaUploadImage')}
+            </button>
+          </div>
+          {error && <div className={styles.formError}>{error}</div>}
+        </div>
+      )}
+
       {mode === 'import-preview' && pendingPlain && (
         <ImportPreview
           payload={pendingPlain}
@@ -422,6 +574,7 @@ export function TransferSection({ accounts, prefs, lockState, onChanged }: Trans
           currentAccounts={accounts}
           onCancel={close}
           onConfirm={() => void confirmImport()}
+          gaInfo={gaInfo}
         />
       )}
 
@@ -491,6 +644,7 @@ function ImportPreview({
   currentAccounts,
   onCancel,
   onConfirm,
+  gaInfo,
 }: {
   payload: ExportPayload;
   importMode: ImportMode;
@@ -498,6 +652,7 @@ function ImportPreview({
   currentAccounts: Account[];
   onCancel: () => void;
   onConfirm: () => void;
+  gaInfo?: { skipped: GaMigrationResult['skipped']; total: number } | null;
 }) {
   const existing = new Set(currentAccounts.map((a) => a.id));
   const newCount = payload.accounts.filter((a) => !existing.has(a.id)).length;
@@ -509,6 +664,14 @@ function ImportPreview({
 
   return (
     <div className={styles.transferPanel}>
+      {gaInfo && (
+        <p className={styles.transferSummary}>
+          {t('optionsGaFromGa', [String(payload.accounts.length), String(gaInfo.total)])}
+          {gaInfo.skipped.length > 0 && (
+            <> · {t('optionsGaSkipped', [String(gaInfo.skipped.length)])}</>
+          )}
+        </p>
+      )}
       <p className={styles.transferSummary}>
         {t('optionsImportPreview', [
           String(payload.accounts.length),

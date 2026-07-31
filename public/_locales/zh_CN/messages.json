@@ -387,5 +387,36 @@
       "update": { "content": "$2" },
       "skip": { "content": "$3" }
     }
+  },
+  "optionsGaButton": {
+    "message": "从 Google Authenticator 迁移"
+  },
+  "optionsGaIntro": {
+    "message": "粘贴 Google Authenticator 导出的迁移链接，或上传迁移二维码图片。链接以 otpauth-migration:// 开头。"
+  },
+  "optionsGaParseUrl": {
+    "message": "解析链接"
+  },
+  "optionsGaUploadImage": {
+    "message": "上传二维码图片"
+  },
+  "optionsGaEmpty": {
+    "message": "请粘贴迁移链接"
+  },
+  "optionsGaQrNotFound": {
+    "message": "图片里没找到二维码"
+  },
+  "optionsGaFromGa": {
+    "message": "来自 Google Authenticator：解码出 $COUNT$ 个 TOTP 账号（共 $TOTAL$ 条记录）",
+    "placeholders": {
+      "count": { "content": "$1" },
+      "total": { "content": "$2" }
+    }
+  },
+  "optionsGaSkipped": {
+    "message": "跳过 $COUNT$ 个（HOTP / MD5）",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
   }
 }
