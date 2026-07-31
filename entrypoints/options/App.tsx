@@ -3,6 +3,9 @@ import { t } from '@/lib/i18n';
 import { vault, watchVault } from '@/lib/storage';
 import { DEFAULT_PREFS, type Account, type Prefs } from '@/lib/model';
 import { CloseIcon } from '@/components/Icon';
+import { SecuritySection } from './SecuritySection';
+import { installLockRuntime } from '@/lib/lock-runtime';
+import { getLockState, onLockChange, lock as doLock, type LockState } from '@/lib/lock';
 import styles from './App.module.css';
 
 /**
@@ -10,18 +13,24 @@ import styles from './App.module.css';
  *
  * M6：域名绑定管理（按域名聚合）。
  * M7：聚焦浮层偏好（panelEnabled / broadDetection / disabledHosts）。
+ * M8：主密码加密与锁状态。
  */
 export default function App() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
+  const [lockState, setLockState] = useState<LockState>('plaintext');
 
   useEffect(() => {
+    installLockRuntime();
     let cancelled = false;
     void vault.list().then((list) => {
       if (!cancelled) setAccounts(list);
     });
     void vault.getPrefs().then((p) => {
       if (!cancelled) setPrefs(p);
+    });
+    void getLockState().then((s) => {
+      if (!cancelled) setLockState(s);
     });
     const unwatch = watchVault(() => {
       void vault.list().then((list) => {
@@ -31,9 +40,13 @@ export default function App() {
         if (!cancelled) setPrefs(p);
       });
     });
+    const off = onLockChange((s) => {
+      if (!cancelled) setLockState(s);
+    });
     return () => {
       cancelled = true;
       unwatch();
+      off();
     };
   }, []);
 
@@ -163,6 +176,14 @@ export default function App() {
           </ul>
         )}
       </section>
+
+      {/* M8：主密码加密与锁状态 */}
+      <SecuritySection
+        lockState={lockState}
+        prefs={prefs}
+        onLockNow={() => void doLock()}
+        onPrefsChange={(patch) => void updatePref('lockMinutes', patch.lockMinutes ?? prefs.lockMinutes)}
+      />
     </div>
   );
 }

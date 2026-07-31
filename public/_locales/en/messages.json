@@ -221,5 +221,75 @@
   },
   "unlockForgotHint": {
     "message": "Forgot the password? You'll have to clear all account data — there's no recovery."
+  },
+  "optionsSecurityTitle": {
+    "message": "Security",
+    "description": "Title of the security section in settings"
+  },
+  "optionsSecuritySubtitle": {
+    "message": "Encrypt all TOTP secrets at rest with a master password. You'll need to re-enter it after a browser restart or auto-lock."
+  },
+  "optionsSecurityStatePlaintext": {
+    "message": "Secrets are stored in plaintext. Enable master password encryption below."
+  },
+  "optionsSecurityStateUnlocked": {
+    "message": "Encryption enabled, currently unlocked."
+  },
+  "optionsSecurityStateLocked": {
+    "message": "Encryption enabled, currently locked. Open the popup to enter your password."
+  },
+  "optionsEnableEncryption": {
+    "message": "Enable master password"
+  },
+  "optionsDisableEncryption": {
+    "message": "Disable encryption"
+  },
+  "optionsChangePassword": {
+    "message": "Change password"
+  },
+  "optionsLockNow": {
+    "message": "Lock now"
+  },
+  "optionsAutoLockMinutes": {
+    "message": "Auto-lock after",
+    "description": "Label for the auto-lock timeout dropdown"
+  },
+  "optionsAutoLockOption": {
+    "message": "$MIN$ minutes",
+    "description": "Auto-lock timeout option label (placeholder $MIN$ is the minute count)",
+    "placeholders": {
+      "min": {
+        "content": "$1",
+        "example": "15"
+      }
+    }
+  },
+  "optionsAutoLockNever": {
+    "message": "Never (until browser restart)"
+  },
+  "optionsCurrentPassword": {
+    "message": "Current password"
+  },
+  "optionsNewPassword": {
+    "message": "New password"
+  },
+  "optionsConfirmPassword": {
+    "message": "Confirm new password"
+  },
+  "optionsPasswordMismatch": {
+    "message": "Passwords don't match"
+  },
+  "optionsWrongPassword": {
+    "message": "Wrong password"
+  },
+  "optionsEncryptionFailed": {
+    "message": "Operation failed: $MSG$",
+    "description": "Generic error message for encryption operations",
+    "placeholders": {
+      "msg": {
+        "content": "$1",
+        "example": "already enabled"
+      }
+    }
   }
 }

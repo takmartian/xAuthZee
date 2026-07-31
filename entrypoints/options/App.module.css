@@ -189,3 +189,102 @@
   background: var(--xz-bg);
   color: var(--xz-danger);
 }
+
+/* ---------- 安全 section（M8）---------- */
+
+.select {
+  padding: 5px 8px;
+  border: 1px solid var(--xz-border);
+  border-radius: 6px;
+  background: var(--xz-bg);
+  color: var(--xz-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--xz-accent);
+}
+
+.securityActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.securityForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 14px;
+  background: var(--xz-bg-subtle);
+  border: 1px solid var(--xz-border);
+  border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.formError {
+  font-size: 12px;
+  color: var(--xz-danger);
+  padding: 2px 0;
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.primaryButton,
+.secondaryButton,
+.dangerButton {
+  padding: 7px 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.12s, opacity 0.12s;
+}
+
+.primaryButton {
+  background: var(--xz-accent);
+  color: #fff;
+  border-color: var(--xz-accent);
+}
+
+.primaryButton:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.secondaryButton {
+  background: transparent;
+  color: var(--xz-text);
+  border-color: var(--xz-border);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--xz-bg);
+}
+
+.dangerButton {
+  background: transparent;
+  color: var(--xz-danger);
+  border-color: var(--xz-danger);
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.dangerButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

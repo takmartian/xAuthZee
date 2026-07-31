@@ -221,5 +221,75 @@
   },
   "unlockForgotHint": {
     "message": "忘了密码？只能清除全部账号数据，无法找回。"
+  },
+  "optionsSecurityTitle": {
+    "message": "安全",
+    "description": "设置页安全 section 标题"
+  },
+  "optionsSecuritySubtitle": {
+    "message": "用主密码加密本地存储的所有 TOTP 密钥。浏览器关闭或自动锁后需要重新输入。"
+  },
+  "optionsSecurityStatePlaintext": {
+    "message": "当前为明文存储。点击下方启用主密码加密。"
+  },
+  "optionsSecurityStateUnlocked": {
+    "message": "已启用，已解锁。"
+  },
+  "optionsSecurityStateLocked": {
+    "message": "已启用，已锁定。打开 popup 输入密码解锁。"
+  },
+  "optionsEnableEncryption": {
+    "message": "启用主密码加密"
+  },
+  "optionsDisableEncryption": {
+    "message": "关闭加密"
+  },
+  "optionsChangePassword": {
+    "message": "修改密码"
+  },
+  "optionsLockNow": {
+    "message": "立即锁定"
+  },
+  "optionsAutoLockMinutes": {
+    "message": "自动锁超时",
+    "description": "自动锁定前的空闲分钟数下拉标签"
+  },
+  "optionsAutoLockOption": {
+    "message": "$MIN$ 分钟",
+    "description": "自动锁超时选项文案（$MIN$ 为分钟数）",
+    "placeholders": {
+      "min": {
+        "content": "$1",
+        "example": "15"
+      }
+    }
+  },
+  "optionsAutoLockNever": {
+    "message": "本次会话不超时"
+  },
+  "optionsCurrentPassword": {
+    "message": "当前密码"
+  },
+  "optionsNewPassword": {
+    "message": "新密码"
+  },
+  "optionsConfirmPassword": {
+    "message": "再输一次"
+  },
+  "optionsPasswordMismatch": {
+    "message": "两次输入不一致"
+  },
+  "optionsWrongPassword": {
+    "message": "密码错误"
+  },
+  "optionsEncryptionFailed": {
+    "message": "操作失败：$MSG$",
+    "description": "加解密相关操作失败的统一提示",
+    "placeholders": {
+      "msg": {
+        "content": "$1",
+        "example": "already enabled"
+      }
+    }
   }
 }
