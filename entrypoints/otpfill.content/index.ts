@@ -6,10 +6,10 @@ import { anyMatch } from '@/lib/domain';
 import { generateCode } from '@/lib/totp';
 import { mountPanel, type OverlayHandle, type OverlayListItem } from './Overlay';
 import type { Account } from '@/lib/model';
-import { installLockRuntime } from '@/lib/lock-runtime';
+import { installContentLockRuntime, getDerivedKey } from '@/lib/lock-runtime';
 import { getLockState } from '@/lib/lock';
 import { revealAccounts, stripSecrets } from '@/lib/secrets';
-import { b64ToBytes } from '@/lib/crypto';
+import { createMessageVault } from '@/lib/storage';
 
 /**
  * 常驻内容脚本（M7）：OTP 输入框聚焦浮层 + 填充。
@@ -59,30 +59,17 @@ export default defineContentScript({
     let currentTarget: HTMLInputElement | null = null;
     let cachedAccounts: Account[] | null = null;
 
-    // 装 lock runtime —— 浮层要按 lockState 决定能否展示密文
-    installLockRuntime();
+    // 装 content 的 lock runtime —— sync / session 全部走消息代理
+    // 问 background。浮层要按 lockState 决定能否展示密文。
+    installContentLockRuntime();
+    const messageVault = createMessageVault();
 
     // 每次 focusin 都拉一次账号列表是浪费 —— 缓存到 storage 变更。
     // 但 popup 写入 → storage.sync.onChanged → 我们重新拉。一次浮层显示
     // 期间不会感知到变化，所以挂一个 listener 在 onChanged 时清缓存。
     async function loadAccounts(): Promise<Account[]> {
       if (cachedAccounts) return cachedAccounts;
-      const raw = await browser.storage.sync.get(null);
-      const byId = new Map<string, Account>();
-      const order: string[] = [];
-      for (const [k, v] of Object.entries(raw)) {
-        if (k === 'index' && Array.isArray(v)) {
-          order.push(...(v as string[]));
-        } else if (k.startsWith('acct:') && v) {
-          byId.set(k.slice(5), v as Account);
-        }
-      }
-      const accounts: Account[] = [];
-      for (const id of order) {
-        const a = byId.get(id);
-        if (a) accounts.push(a);
-      }
-      for (const [id, a] of byId) if (!order.includes(id)) accounts.push(a);
+      const accounts = await messageVault.list();
 
       // 按 lockState 处理 secret：plaintext 直返，unlocked 解密，
       // locked 把 secret 清空（filterAccounts 已有的 !a.secret continue
@@ -90,13 +77,8 @@ export default defineContentScript({
       const state = await getLockState();
       let result: Account[];
       if (state === 'unlocked') {
-        const { derivedKey } = await browser.storage.session.get('derivedKey');
-        if (typeof derivedKey === 'string') {
-          const key = b64ToBytes(derivedKey);
-          result = await revealAccounts(accounts, key);
-        } else {
-          result = stripSecrets(accounts);
-        }
+        const key = await getDerivedKey();
+        result = key ? await revealAccounts(accounts, key) : stripSecrets(accounts);
       } else if (state === 'locked') {
         result = stripSecrets(accounts);
       } else {
@@ -106,25 +88,22 @@ export default defineContentScript({
       return result;
     }
 
-    browser.storage.onChanged.addListener((changes, area) => {
+    // onChanged 事件在 MV3 content script 上下文里是允许监听的：
+    // 跨 surface 同步由 Chrome 自动广播到这里。
+    browser.storage.onChanged.addListener((_changes, area) => {
       // sync 变 → 账号列表可能改了；session.derivedKey 变 → 锁状态变
       // 两种情况都要清 cache，下一次 focusin 重新走加解密路径
-      if (area === 'sync' || (area === 'session' && 'derivedKey' in changes)) {
+      if (area === 'sync' || area === 'session') {
         cachedAccounts = null;
       }
     });
 
     async function getPrefs() {
-      const raw = await browser.storage.sync.get('prefs');
-      const prefs = (raw.prefs as Partial<{
-        panelEnabled: boolean;
-        broadDetection: boolean;
-        disabledHosts: string[];
-      }> | undefined) ?? {};
+      const raw = await messageVault.getPrefs();
       return {
-        panelEnabled: prefs.panelEnabled ?? true,
-        broadDetection: prefs.broadDetection ?? true,
-        disabledHosts: prefs.disabledHosts ?? [],
+        panelEnabled: raw.panelEnabled ?? true,
+        broadDetection: raw.broadDetection ?? true,
+        disabledHosts: raw.disabledHosts ?? [],
       };
     }
 

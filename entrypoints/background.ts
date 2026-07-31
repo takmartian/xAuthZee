@@ -138,6 +138,22 @@ type AnyRequest =
         digits: number;
         period: number;
       };
+    }
+  // M8-j：content script 走消息代理读写 storage。
+  | {
+      type: 'xz-vault-proxy';
+      op: 'get' | 'set' | 'remove' | 'getBytesInUse' | 'list' | 'update' | 'getPrefs' | 'setPrefs';
+      keys?: string | string[] | null;
+      items?: Record<string, unknown>;
+      id?: string;
+      patch?: Record<string, unknown>;
+    }
+  | {
+      type: 'xz-lock-proxy';
+      area: 'sync' | 'session';
+      op: 'get' | 'set' | 'remove';
+      key?: string;
+      items?: Record<string, unknown>;
     };
 
 interface SaveDraft {
@@ -181,6 +197,13 @@ export default defineBackground(() => {
       case 'm2-qrselect-save':
         handleSave(req.draft).then(sendResponse).catch(reportError(sendResponse, 'save'));
         return true;
+      // -------- M8-j：content script 走代理读写 sync / session
+      case 'xz-vault-proxy':
+        handleVaultProxy(req).then(sendResponse).catch(reportError(sendResponse, 'vault-proxy'));
+        return true;
+      case 'xz-lock-proxy':
+        handleLockProxy(req).then(sendResponse).catch(reportError(sendResponse, 'lock-proxy'));
+        return true;
     }
   });
 });
@@ -190,6 +213,72 @@ function reportError(sendResponse: (r: unknown) => void, tag: string) {
     console.error(`[XAuthZee] bg: ${tag} error`, err);
     sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
   };
+}
+
+/**
+ * 把 content script 的 sync storage 读写接回真 storage。
+ *
+ * 调用方：lib/storage.ts 的 createMessageSyncArea / createMessageVault，
+ * 还有 lib/lock-runtime.ts 的 installContentLockRuntime。
+ */
+async function handleVaultProxy(
+  req: Extract<AnyRequest, { type: 'xz-vault-proxy' }>,
+): Promise<unknown> {
+  switch (req.op) {
+    case 'get':
+      return {
+        ok: true as const,
+        data: (await browser.storage.sync.get(req.keys ?? null)) as Record<string, unknown>,
+      };
+    case 'set':
+      if (req.items) await browser.storage.sync.set(req.items);
+      return { ok: true as const, data: {} };
+    case 'remove':
+      if (req.keys) await browser.storage.sync.remove(req.keys);
+      return { ok: true as const, data: {} };
+    case 'getBytesInUse':
+      return {
+        ok: true as const,
+        bytes: await browser.storage.sync.getBytesInUse(req.keys ?? null),
+      };
+    case 'list':
+      return { ok: true as const, accounts: await vault.list() };
+    case 'update': {
+      if (!req.id || !req.patch) throw new Error('vault-proxy update: missing id/patch');
+      await vault.update(req.id, req.patch as Partial<Parameters<typeof vault.update>[1]>);
+      return { ok: true as const };
+    }
+    case 'getPrefs':
+      return { ok: true as const, prefs: await vault.getPrefs() };
+    case 'setPrefs':
+      if (req.patch) await vault.setPrefs(req.patch as Parameters<typeof vault.setPrefs>[0]);
+      return { ok: true as const };
+  }
+}
+
+/**
+ * 把 content script 的 storage.sync / session 读 + sec 状态机读写接回真 storage。
+ *
+ * 直接转发到 background 自己的 storage（不走 lock.ts 状态机 —— 因为
+ * 调用方已经是要读 sec / session.derivedKey，不是要触发状态转移）。
+ */
+async function handleLockProxy(
+  req: Extract<AnyRequest, { type: 'xz-lock-proxy' }>,
+): Promise<unknown> {
+  const area = req.area === 'sync' ? browser.storage.sync : browser.storage.session;
+  switch (req.op) {
+    case 'get':
+      return {
+        ok: true as const,
+        data: (await area.get(req.key)) as Record<string, unknown>,
+      };
+    case 'set':
+      if (req.items) await area.set(req.items);
+      return { ok: true as const, data: {} };
+    case 'remove':
+      if (req.key) await area.remove(req.key);
+      return { ok: true as const, data: {} };
+  }
 }
 
 /** 注入 qrselect.content —— 实际的选区 UI 由 content 脚本自己挂载 */
