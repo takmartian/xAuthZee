@@ -191,3 +191,28 @@
     background: rgba(64, 158, 255, 0.36);
   }
 }
+/* Shadow DOM 内的滚动条：复刻 theme.css 的样式（shadow 内不继承全局） */
+.xz-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.35) transparent;
+}
+.xz-panel::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.xz-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.xz-panel::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.35);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.15s ease;
+}
+.xz-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+.xz-panel::-webkit-scrollbar-thumb:active {
+  background: rgba(99, 102, 241, 0.85);
+}
