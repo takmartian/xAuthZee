@@ -1,12 +1,8 @@
-# XAuthZee / 小验子
+# XAuthZee / 小验子 (Browser Extension)
 
 **[English](README.md) | [中文](README.zh.md)**
 
-A Time-based One-Time Password (TOTP / RFC 6238) authenticator that
-lives inside your browser. Scan a QR code from any page, then fill your
-one-time code with a single click. Optional master-password encryption,
-cross-device sync through your browser's own infrastructure, zero data
-leaves your device.
+A TOTP authenticator extension that lives inside your browser.
 
 <p align="center">
   <img src="store-assets/promo/small-440x280.png" alt="XAuthZee" width="440">
@@ -17,38 +13,38 @@ leaves your device.
 | ![popup](store-assets/screenshots/01-popup.png) | ![otp overlay](store-assets/screenshots/02-otp-overlay.png) |
 | ![options](store-assets/screenshots/03-options.png) | ![locked](store-assets/screenshots/04-locked.png) |
 
-## Why XAuthZee
+## The Pain Points
 
-Most authenticator apps live on a separate device, which means
-switching windows to grab a code. XAuthZee puts the codes where you
-already are — the browser tab that is asking for them.
+1. You need a one-time code on your computer, but you have to grab
+   your phone to scan a QR — annoying.
+2. Switching computers or browsers means migrating accounts by hand —
+   annoying.
+3. Some sites delegate their verification to an SSO provider you
+   didn't sign up for — annoying.
+4. Annoying, annoying, annoying!
 
-## Features
+## How XAuthZee Helps
 
 - **Scan any QR on the page.** Click the scan button, drag a rectangle
-  over the QR code. XAuthZee reads it, parses the `otpauth://` URL,
-  and saves the account.
+  over the QR code — XAuthZee reads it and adds the account.
 - **One-click fill.** Focus a one-time-code input on any site and
-  XAuthZee shows a small panel with the matching code. Pick it and
-  the code is typed into the page (or copied to the clipboard as a
-  fallback when the site blocks scripting).
-- **Host bindings.** Bind accounts to specific hostnames so that when
-  you visit, say, `github.com`, the right code is at the top of the
-  list.
-- **Master password (optional).** Encrypt your secret keys with a
-  password you choose. The derived key lives in session storage and
-  is cleared when the browser closes. The auto-lock timer (5/15/30/60
-  minutes or never) and the system's own lock screen both lock the
-  extension immediately.
-- **Import / export.** Move accounts between devices as JSON (with
-  optional password-protected encryption). You can also paste a
-  `otpauth-migration://` link (Google Authenticator's transfer
-  format) or its QR screenshot.
-- **Cross-device sync.** Because accounts are stored in
-  `chrome.storage.sync`, they show up on every Chrome and Edge you
-  sign in to.
-- **i18n.** English and Simplified Chinese UI; the extension follows
-  the browser's language.
+  XAuthZee pops a tiny panel with the matching codes. Click one and
+  the code is typed into the input for you.
+- **Host bindings.** Bind a code to a specific `hostname`; every page
+  on that domain pushes the bound code to the top of the list (handles
+  the edge case where one site uses a third-party verification
+  provider, or one domain hosts multiple sub-domains each with its own
+  account).
+- **Master password (optional).** Set your own lock password. The
+  auto-lock timer (5 / 15 / 30 / 60 minutes, or never) and the OS
+  lock screen both lock the extension immediately.
+- **Import / export.** Move your codes between devices as JSON
+  (optionally password-protected). You can also paste a Google
+  Authenticator QR screenshot.
+- **Cross-device sync.** Every Chrome / Edge signed in to the same
+  browser account picks up your codes automatically.
+- **i18n.** English + Simplified Chinese UI; the extension follows
+  the browser language.
 
 ## Install
 
@@ -57,8 +53,8 @@ The extension is published on the Chrome Web Store and Edge Add-ons:
 - **Chrome**: [Chrome Web Store](https://chrome.google.com/webstore/detail/xauthzee) (link after publication)
 - **Edge**: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/xauthzee) (link after publication)
 
-For development, see the [Building from source](#building-from-source)
-section below.
+For local development, see [Building from source](#building-from-source)
+below.
 
 ## Permissions, briefly
 
@@ -68,8 +64,8 @@ require and nothing more:
 | Permission     | Why                                                                                          |
 | -------------- | -------------------------------------------------------------------------------------------- |
 | `storage`      | Save accounts and preferences locally; sync through your browser.                            |
-| `activeTab`    | Read the current tab's URL on user click, to bind a host or capture a QR.                    |
-| `scripting`    | Inject the QR region-selector content script on user action.                                  |
+| `activeTab`    | Read the current tab's URL on user click (for "bind current site" and QR capture).           |
+| `scripting`    | Inject the QR region-selector overlay on user action.                                        |
 | `alarms`       | Schedule the master-password auto-lock timer.                                                |
 | `idle`         | Lock the extension when the operating system locks.                                          |
 
@@ -165,15 +161,17 @@ checklist and copy-paste answers for each store's privacy form.
 
 ## Security notes
 
-- **Master password cannot be recovered.** If you forget it, the
-  encrypted secrets are unrecoverable by design. Reset the extension
-  in options → security → "Turn off encryption" if you can still
-  remember it; otherwise re-add accounts from their original QR
-  codes.
+- **The master password cannot be recovered.** If you forget it, the
+  encrypted secrets are unrecoverable by design. As a safety net,
+  five consecutive wrong attempts within 60 minutes automatically
+  reset the authenticator and wipe all codes — there is no other
+  recovery path. To turn off encryption while you still remember it,
+  go to Options → Security → "Turn off encryption"; otherwise re-add
+  accounts from their original QR codes.
 - **`session.derivedKey` never syncs.** It lives only in
   `chrome.storage.session`, which is per-device. The master-password
-  flow is: each device enters the password independently, derives
-  its own key in PBKDF2, and uses it to decrypt the synced
+  flow is: each device enters the password independently, derives its
+  own key with PBKDF2, and uses it to decrypt the synced
   `enc1:`-encrypted secrets.
 - **No host permission.** We use `activeTab` (Chrome MV3's
   minimum-privilege alternative) instead of `<all_urls>`.
