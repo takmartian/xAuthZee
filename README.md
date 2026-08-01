@@ -1,6 +1,6 @@
-# XAuthZee / 小验子 (Browser Extension)
+# XAuthZee (Browser Extension)
 
-**[English](README.md) | [中文](README.zh.md)**
+**English | [中文](README.zh.md)**
 
 A TOTP authenticator extension that lives inside your browser.
 
@@ -48,13 +48,30 @@ A TOTP authenticator extension that lives inside your browser.
 
 ## Install
 
-The extension is published on the Chrome Web Store and Edge Add-ons:
+The extension is published on three stores:
 
 - **Chrome**: [Chrome Web Store](https://chrome.google.com/webstore/detail/xauthzee) (link after publication)
 - **Edge**: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/xauthzee) (link after publication)
+- **Firefox**: [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/xauthzee/) (link after publication)
 
 For local development, see [Building from source](#building-from-source)
 below.
+
+## Firefox limitations
+
+Firefox WebExtensions does not expose the `idle` API, so the
+"immediately lock when the OS screen locks" feature is unavailable on
+Firefox. Everything else is identical:
+
+- The auto-lock timer (5 / 15 / 30 / 60 minutes or never) still
+  fires normally.
+- All other auto-lock triggers (manual lock, idle alarm, wipe after
+  5 wrong passwords) still work.
+- Cross-device sync uses the user's Mozilla account via Firefox Sync
+  instead of Chrome Sync / Microsoft Account.
+- AMO submission form answers are at
+  [`store-assets/listing/privacy-practices-firefox-en.txt`](store-assets/listing/privacy-practices-firefox-en.txt)
+  (or `-zh.txt` for the Chinese version).
 
 ## Permissions, briefly
 
@@ -110,10 +127,15 @@ that folder in `chrome://extensions/` with "Developer mode" on.
 | ---------------------- | --------------------------------------------------------------------------- |
 | `npm run dev`          | WXT dev server (Chrome target).                                              |
 | `npm run dev:edge`     | WXT dev server (Edge target).                                                |
+| `npm run dev:firefox`  | WXT dev server (Firefox target).                                              |
 | `npm run build`        | Production build to `.output/chrome-mv3/`.                                  |
 | `npm run build:edge`   | Production build to `.output/edge-mv3/`.                                     |
+| `npm run build:firefox`| Production build to `.output/firefox-mv3/`.                                  |
+| `npm run build:all`    | Build for all three targets in sequence.                                     |
 | `npm run zip`          | Build + zip for Chrome Web Store.                                            |
 | `npm run zip:edge`     | Build + zip for Edge Add-ons.                                                |
+| `npm run zip:firefox`  | Build + zip for Firefox Add-ons (also emits a `-sources.zip` AMO requires). |
+| `npm run zip:all`      | Zip for all three stores in sequence.                                        |
 | `npm run compile`      | TypeScript type check only (`tsc --noEmit`).                                  |
 | `npm test`             | Unit tests (`node --test tests/*.test.ts`).                                  |
 | `npm run icons`        | Regenerate the four extension icons in `public/icon/`.                       |

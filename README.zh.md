@@ -1,4 +1,4 @@
-# XAuthZee / 小验子 （浏览器扩展）
+# 小验子 （浏览器扩展）
 
 **[English](README.md) | 中文**
 
@@ -32,12 +32,26 @@
 
 ## 安装
 
-扩展已发布到 Chrome Web Store 和 Edge Add-ons：
+扩展已发布到三家商店：
 
 - **Chrome**：[Chrome Web Store](https://chrome.google.com/webstore/detail/xauthzee)（发布后填入）
 - **Edge**：[Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/xauthzee)（发布后填入）
+- **Firefox**：[Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/xauthzee/)（发布后填入）
 
 本地开发见下面的 [从源码构建](#从源码构建)。
+
+## Firefox 限制
+
+Firefox WebExtensions 不暴露 `idle` API，所以「系统锁屏立即锁」
+这个特性在 Firefox 上不可用。其他都跟 Chrome 版一致：
+
+- 自动锁定时器（5 / 15 / 30 / 60 分钟或从不）照常工作。
+- 其他自动锁触发（手动锁、空闲 alarm、5 次错误 wipe）都正常。
+- 跨设备同步通过用户的 Mozilla 账号经 Firefox Sync 实现，不是
+  Chrome Sync 或 Microsoft Account。
+- AMO 上架表单答案见
+  [`store-assets/listing/privacy-practices-firefox-zh.txt`](store-assets/listing/privacy-practices-firefox-zh.txt)
+  （或英文版 `-en.txt`）。
 
 ## 权限说明
 
@@ -82,10 +96,15 @@ dev server 把扩展构建到 `.output/chrome-mv3/`，到 `chrome://extensions/`
 | -------------------- | ------------------------------------------------------------- |
 | `npm run dev`        | WXT dev server（Chrome 目标）                                  |
 | `npm run dev:edge`   | WXT dev server（Edge 目标）                                    |
+| `npm run dev:firefox`| WXT dev server（Firefox 目标）                                  |
 | `npm run build`      | 生产构建到 `.output/chrome-mv3/`                                |
 | `npm run build:edge` | 生产构建到 `.output/edge-mv3/`                                  |
+| `npm run build:firefox` | 生产构建到 `.output/firefox-mv3/`                           |
+| `npm run build:all`  | 依次构建三个目标                                              |
 | `npm run zip`        | 构建并打包成 Chrome Web Store 上传 zip                          |
 | `npm run zip:edge`   | 构建并打包成 Edge Add-ons 上传 zip                             |
+| `npm run zip:firefox`| 构建并打包成 Firefox Add-ons 上传 zip（同时产出 AMO 必需的 sources.zip） |
+| `npm run zip:all`    | 依次给三个商店打包                                            |
 | `npm run compile`    | 仅做 TypeScript 类型检查（`tsc --noEmit`）                     |
 | `npm test`           | 单元测试（`node --test tests/*.test.ts`）                       |
 | `npm run icons`      | 重新生成 `public/icon/` 下的四个扩展图标                       |

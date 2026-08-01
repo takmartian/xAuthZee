@@ -1,0 +1,160 @@
+Firefox Add-ons (AMO) — Privacy & data usage answers (plain text)
+
+This file mirrors the Chrome Web Store version (privacy-practices-en.txt)
+but adapts it for AMO's submission form. Notable differences:
+
+  - No chrome.idle permission section (Firefox WebExtensions does not
+    support the idle API). System-lock immediate auto-lock is therefore
+    unavailable on Firefox; the auto-lock timer (5/15/30/60 min) is
+    still in effect.
+  - Sync goes through the user's Mozilla account, not a Google account.
+  - AMO's privacy form asks "does the extension collect / send / share
+    user data" rather than per-permission justifications; the relevant
+    answers are condensed under [AMO Privacy] below.
+
+
+[1. Why activeTab permission is needed]
+
+Same as Chrome. The extension only reads the current tab's URL when
+the user actively clicks the toolbar icon or the scan button, and only
+captures a QR code screenshot on that explicit click. activeTab grants
+temporary on-click access; we use it instead of <all_urls> to honor
+the principle of least privilege. Reading the current URL enables the
+"bind current site" feature and the QR capture triggered by the scan
+button.
+
+[2. Why alarms permission is needed]
+
+Same as Chrome. browser.alarms schedules the master-password
+auto-lock timer. When the user enables master-password encryption and
+picks an auto-lock timeout (5/15/30/60 minutes or never), the
+extension registers an alarm named xz-auto-lock that, when it fires,
+clears the derived key from session storage and switches the lock
+state back to locked. alarms is the browser-native scheduling API
+and is more reliable than setTimeout because it can fire even after
+the Service Worker has been evicted. The extension uses alarms for
+nothing else.
+
+[3. (no idle permission section — Firefox WebExtensions does not
+expose the idle API)]
+
+Background: in Chrome the extension listens to chrome.idle.onStateChanged
+and only reacts to the 'locked' state by immediately locking the
+extension. This event is unavailable on Firefox WebExtensions, so the
+extension falls back to the auto-lock timer only — the user must wait
+for the configured timer (5/15/30/60 minutes) to elapse before the
+session key is cleared on system lock. This is documented in the
+README under "Firefox limitations".
+
+[4. Why scripting permission is needed]
+
+Same as Chrome. When the user clicks the scan button, the extension
+calls browser.scripting.executeScript to inject a content script into
+the current tab. That content script displays a QR code
+region-selector overlay that lets the user drag a rectangle around
+the QR on the page, which is then decoded with jsQR. The injection
+is on-demand (only after a user click, never running in the
+background on every tab), and the injected script's lifetime is
+limited to the scan interaction.
+
+[5. Why storage permission is needed]
+
+Same as Chrome, with one substitution: sync is through the user's
+Mozilla account via Firefox Sync, not a Google account. The extension
+uses browser.storage.sync to persist all user data: account list,
+encryption records, and preferences. Sync means the data is
+automatically available on every device the user signs into the same
+Mozilla account on, through the browser's own sync mechanism — the
+extension itself never contacts an external server. The extension
+also uses browser.storage.session to hold the derived master-password
+key while unlocked; session storage is not synced and is cleared when
+the browser closes.
+
+[6. Why remote code is needed (or not)]
+
+Same as Chrome. This extension does not use any remote code. All
+JavaScript is bundled in the zip file uploaded to AMO. The WXT build
+statically bundles every source file into the extension at build
+time. There is no eval, no dynamic import of external scripts, no
+WebAssembly module loading, no fetching of resources from a CDN or
+any external domain. Opening the extension's source shows the
+complete set of executable code.
+
+[7. Why host permission is needed]
+
+Same as Chrome. The extension does not request any host permission
+(no <all_urls>, no specific domain pattern). We use the activeTab
+permission instead, which grants the extension a temporary, on-click
+access to the current tab only.
+
+[8. Single purpose description]
+
+Same as Chrome. The single purpose of this extension is TOTP
+(Time-based One-Time Password, RFC 6238) code management: securely
+store the user's 2FA account secrets in the browser, surface the
+matching code as a small panel when the user visits a bound site,
+and fill the code into the page's OTP input with a single click. The
+extension does nothing else.
+
+[9. Data usage compliance]
+
+Same as Chrome. I confirm that this extension complies with the
+Firefox Add-ons Program Policies. The extension does not collect,
+use, or transmit any user personal data: all account data lives in
+browser.storage.sync on the user's device, and is synced across the
+user's own devices through the browser's own sync mechanism; the
+extension itself never contacts any external server. There is no
+analytics, no tracking, no advertising, no crash reporting, no
+third-party SDK. No data is sold or shared with any third party.
+
+
+[AMO Privacy] — Direct answers to AMO's "data practices" form
+
+Does this extension collect any user data?
+
+  No.
+
+Does this extension send any data to a remote server?
+
+  No.
+
+Does this extension share any user data with third parties?
+
+  No.
+
+What data does the extension access, and where is it stored?
+
+  The extension accesses the following data, all of which is stored
+  locally on the user's device:
+
+    - Account list (issuer, label, Base32 TOTP secret, algorithm,
+      digits, period, bound domains) — stored in browser.storage.sync
+      on the user's device and replicated through the user's Mozilla
+      account via Firefox Sync, which the extension does not control.
+    - Master-password encryption records (PBKDF2 salt, verifier
+      ciphertext, KDF parameters) — stored in browser.storage.sync.
+    - Master-password attempt counter (failed attempts since last
+      successful unlock) — stored in browser.storage.sync as part of
+      the encryption record.
+    - User preferences (floating panel toggle, broad detection flag,
+      disabled hosts list, auto-lock timeout) — stored in
+      browser.storage.sync.
+    - Derived master-password key while unlocked — stored in
+      browser.storage.session only, cleared when the browser closes
+      and cleared by the auto-lock timer.
+    - Current tab URL on user click — read in memory only, not
+      persisted.
+
+What permissions does this extension request, and what are they used
+for?
+
+    - storage: persist the data listed above.
+    - activeTab: read the current tab URL on user click for "bind
+      current site" and capture a QR screenshot.
+    - scripting: inject the QR region-selector content script on user
+      action.
+    - alarms: schedule the master-password auto-lock timer.
+    - idle: react to the system lock screen by locking immediately.
+      (This permission is declared in the manifest but has no effect
+      on Firefox — Firefox WebExtensions does not expose the idle
+      API. The extension tolerates its absence via feature detection.)
