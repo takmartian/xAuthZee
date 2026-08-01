@@ -228,6 +228,34 @@
   "unlockForgotHint": {
     "message": "忘了密码？只能清除全部账号数据，无法找回。"
   },
+  "unlockWarnHeader": {
+    "message": "⚠ 密码连续输入错误 5 次将自动重置验证器，这将清空验证器里的所有验证码。",
+    "description": "解锁屏首次错误后顶部追加的警告行"
+  },
+  "unlockAttemptsLeft": {
+    "message": "密码错误，还剩 $n$ 次机会。",
+    "description": "密码错误时主错误行，$n$ 是剩余次数",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "4"
+      }
+    }
+  },
+  "unlockAttemptsResetIn": {
+    "message": "失败次数将在 $m$ 分钟后重置。",
+    "description": "密码错误时副标题，$m$ 是窗口剩余分钟数",
+    "placeholders": {
+      "m": {
+        "content": "$1",
+        "example": "45"
+      }
+    }
+  },
+  "unlockWiped": {
+    "message": "已达错误上限，已自动重置验证器。",
+    "description": "5 次错误自动 wipe 后显示"
+  },
   "optionsSecurityTitle": {
     "message": "安全",
     "description": "设置页安全 section 标题"

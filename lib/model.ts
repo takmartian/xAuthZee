@@ -29,6 +29,9 @@ export const ENC_PREFIX = 'enc1:';
  * - salt / iter 用于 PBKDF2 派生 key
  * - verifyIv / verifyCiphertext 是 verifier 明文加密后的密文；
  *   unlock 时尝试用派生 key 解密它，能解出 VERIFIER_PLAINTEXT 就算密码正确
+ * - attempts / lastAttemptAt 是 M10 引入的「5 次错误自动 wipe」计数器：
+ *   unlock 失败时 attempts+1、lastAttemptAt=now；超过 RESET_WINDOW_MS
+ *   没再失败就视作归零。旧 sec 记录缺这两个字段，按 0 处理。
  */
 export interface SecRecord {
   kdf: 'PBKDF2-SHA256';
@@ -39,6 +42,10 @@ export interface SecRecord {
   verifyIv: string;
   /** base64 */
   verifyCiphertext: string;
+  /** 连续错误次数（兼容旧记录：缺省视为 0） */
+  attempts?: number;
+  /** 最后一次错误的时间戳（ms）。超 60 分钟视为归零 */
+  lastAttemptAt?: number;
 }
 
 export interface Account {

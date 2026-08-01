@@ -18,6 +18,10 @@ import {
   changePassword,
   disableEncryption,
   onLockChange,
+  wipeVaultAndReset,
+  getAttempts,
+  MAX_ATTEMPTS,
+  RESET_WINDOW_MS,
   setLockRuntime,
   type LockRuntime,
   type SyncStorage,
@@ -78,6 +82,10 @@ function fakeVault(initial: Account[] = []) {
         const cur = accounts.get(id);
         if (!cur) throw new Error(`no account ${id}`);
         accounts.set(id, { ...cur, ...patch });
+      },
+      async clearAll() {
+        // M10：5 次错误 wipe 时调用。prefs 保留
+        accounts.clear();
       },
       async getPrefs() {
         return { ...prefs };
@@ -244,7 +252,8 @@ describe('三态转移', () => {
     activeUnset = setLockRuntime(r.rt);
     await setupEncryption('mypassword');
     await lock();
-    assert.ok(await unlock('mypassword'));
+    const result = await unlock('mypassword');
+    assert.ok(result.ok);
     assert.equal(await getLockState(), 'unlocked');
   });
 
@@ -253,14 +262,21 @@ describe('三态转移', () => {
     activeUnset = setLockRuntime(r.rt);
     await setupEncryption('mypassword');
     await lock();
-    assert.equal(await unlock('wrongpassword'), false);
+    const result = await unlock('wrongpassword');
+    assert.equal(result.ok, false);
+    assert.equal(result.wiped, false);
+    assert.equal(result.attemptsLeft, 4);
     assert.equal(await getLockState(), 'locked');
   });
 
-  test('plaintext 态 unlock 返回 false（没有 sec）', async () => {
+  test('plaintext 态 unlock 返回 wiped=true（没有 sec）', async () => {
     const r = makeRuntime({});
     activeUnset = setLockRuntime(r.rt);
-    assert.equal(await unlock('anything'), false);
+    // M10 改造后，plaintext 态 unlock 也走「sec 不存在」分支，返回 wiped=true
+    // 让 UI 切回 plaintext 主界面（实际本来就是 plaintext，渲染空列表）
+    const result = await unlock('anything');
+    assert.equal(result.ok, false);
+    assert.equal(result.wiped, true);
     assert.equal(await getLockState(), 'plaintext');
   });
 
@@ -287,7 +303,8 @@ describe('迁移现有账号', () => {
 
     // 还能用同一密码解锁并解出原文
     await lock();
-    assert.ok(await unlock('p'));
+    const result = await unlock('p');
+    assert.ok(result.ok);
     // 上面 unlock 已经验证密码正确；再手动解密一个验证
     const sess = await r.session.impl.get('derivedKey');
     const key = Buffer.from(sess['derivedKey'] as string, 'base64');
@@ -336,8 +353,10 @@ describe('changePassword', () => {
     await setupEncryption('old');
     assert.ok(await changePassword('old', 'new'));
     await lock();
-    assert.ok(await unlock('new'));
-    assert.equal(await unlock('old'), false);
+    const r1 = await unlock('new');
+    assert.ok(r1.ok);
+    const r2 = await unlock('old');
+    assert.equal(r2.ok, false);
   });
 
   test('改密码后原 secret 仍能解出（用 new key）', async () => {
@@ -488,5 +507,201 @@ describe('onLockChange', () => {
     off();
     await setupEncryption('p');
     assert.equal(states.length, 0);
+  });
+});
+
+// ------------------------------------------------------------ M10：5 次错误自动 wipe
+
+describe('M10 错误尝试计数', () => {
+  test('第 N 次错误返回 attemptsLeft = MAX - N', async () => {
+    const r = makeRuntime({});
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('right');
+
+    for (let n = 1; n < MAX_ATTEMPTS; n++) {
+      await lock();
+      const result = await unlock('wrong');
+      assert.equal(result.ok, false, `第 ${n} 次错误：ok 应为 false`);
+      assert.equal(result.wiped, false, `第 ${n} 次错误：wiped 应为 false`);
+      assert.equal(result.attemptsLeft, MAX_ATTEMPTS - n, `第 ${n} 次错误：attemptsLeft 应为 ${MAX_ATTEMPTS - n}`);
+      assert.ok(result.resetAt, `第 ${n} 次错误：resetAt 应存在`);
+    }
+  });
+
+  test('第 5 次错误触发 wipe 并返回 wiped=true', async () => {
+    const accounts = [makeAccount('a', 'JBSWY3DPEHPK3PXP', 'GitHub')];
+    const r = makeRuntime({ accounts });
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('right');
+
+    // 4 次失败（attempts 1..4）
+    for (let i = 0; i < MAX_ATTEMPTS - 1; i++) {
+      await lock();
+      const r1 = await unlock('wrong');
+      assert.equal(r1.wiped, false);
+    }
+
+    // 第 5 次失败 → wipe
+    await lock();
+    const last = await unlock('wrong');
+    assert.equal(last.ok, false);
+    assert.equal(last.wiped, true);
+
+    // sec 被删
+    assert.equal(r.sync.data['sec'], undefined);
+    // session key 被删
+    assert.equal(r.session.data['derivedKey'], undefined);
+    // alarm 被清
+    assert.equal(r.alarm.alarms.size, 0);
+    // lockState 回到 plaintext
+    assert.equal(await getLockState(), 'plaintext');
+  });
+
+  test('wipe 后账号全部清空，prefs 保留', async () => {
+    const accounts = [
+      makeAccount('a', 'JBSWY3DPEHPK3PXP'),
+      makeAccount('b', 'KRSXG5BAONSWG4TFOQ'),
+    ];
+    const r = makeRuntime({ accounts, lockMinutes: 30 });
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('p');
+
+    await wipeVaultAndReset();
+
+    // 账号清空
+    assert.equal((await r.vault.impl.list()).length, 0);
+    // prefs 保留 —— 用户重置后重新启用加密时按原值预选
+    assert.equal((await r.vault.impl.getPrefs()).lockMinutes, 30);
+    // sec / session 全清
+    assert.equal(r.sync.data['sec'], undefined);
+    assert.equal(r.session.data['derivedKey'], undefined);
+  });
+
+  test('成功解锁后 attempts 清零写回 sec', async () => {
+    const r = makeRuntime({});
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('right');
+    await lock();
+
+    // 错 2 次
+    await unlock('wrong');
+    await lock();
+    await unlock('wrong');
+    assert.equal((r.sync.data['sec'] as { attempts?: number }).attempts, 2);
+
+    // 对密码 → attempts 应清零
+    await lock();
+    const ok = await unlock('right');
+    assert.ok(ok.ok);
+    assert.equal((r.sync.data['sec'] as { attempts?: number }).attempts, 0);
+  });
+
+  test('窗口中途成功解锁也会清零 attempts（即使还在 60 分钟内）', async () => {
+    const r = makeRuntime({});
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('right');
+    await lock();
+
+    // 错 3 次
+    for (let i = 0; i < 3; i++) {
+      await unlock('wrong');
+      await lock();
+    }
+    assert.equal((r.sync.data['sec'] as { attempts?: number }).attempts, 3);
+
+    // 跳 5 分钟（仍在窗口内）
+    r.now.t += 5 * 60_000;
+
+    // 对密码
+    await unlock('right');
+    assert.equal((r.sync.data['sec'] as { attempts?: number }).attempts, 0);
+  });
+
+  test('60 分钟后 attempts 自动归零（注入 fake now）', async () => {
+    const r = makeRuntime({});
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('right');
+    await lock();
+
+    // 错 4 次
+    for (let i = 0; i < 4; i++) {
+      await unlock('wrong');
+      await lock();
+    }
+    assert.equal((await getAttempts()).attempts, 4);
+
+    // 跳 61 分钟（已超 RESET_WINDOW_MS）
+    r.now.t += RESET_WINDOW_MS + 60_000;
+
+    // getAttempts 应在内存里把 attempts 视作 0（**不写回 sec**）
+    assert.equal((await getAttempts()).attempts, 0);
+    // sec 上还是旧值 —— 下一次 unlock 失败时会按 0 重新累加
+    assert.equal((r.sync.data['sec'] as { attempts?: number }).attempts, 4);
+
+    // 下次错误：attempts 从 0 开始累加到 1
+    const result = await unlock('wrong');
+    assert.equal(result.attemptsLeft, MAX_ATTEMPTS - 1);
+    assert.equal((r.sync.data['sec'] as { attempts?: number }).attempts, 1);
+  });
+
+  test('getAttempts — 无 sec 时返回 0', async () => {
+    const r = makeRuntime({});
+    activeUnset = setLockRuntime(r.rt);
+    // 没 setupEncryption：sec 不存在
+    assert.equal((await getAttempts()).attempts, 0);
+  });
+
+  test('wipe 在 unlock 期间发生：sec 已消失时返回 wiped=true', async () => {
+    const r = makeRuntime({});
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('right');
+    await lock();
+
+    // 模拟另一 surface 已经 wipe 完：sec 被删
+    delete r.sync.data['sec'];
+    // 通知 onChange（让 getLockState 看到新状态）
+    for (const cb of r.onChangeCbs) cb(await getLockState());
+
+    const result = await unlock('right');
+    assert.equal(result.ok, false);
+    assert.equal(result.wiped, true);
+  });
+
+  test('wipe 后用户重新启用加密能正常工作', async () => {
+    const accounts = [makeAccount('a', 'JBSWY3DPEHPK3PXP')];
+    const r = makeRuntime({ accounts });
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('p');
+
+    // 触发 wipe
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await lock();
+      const result = await unlock('wrong');
+      if (i === MAX_ATTEMPTS - 1) {
+        assert.equal(result.wiped, true);
+      } else {
+        assert.equal(result.wiped, false);
+      }
+    }
+    assert.equal(await getLockState(), 'plaintext');
+
+    // 重新启用加密（vault 已空所以无需迁移）
+    await setupEncryption('newpw');
+    assert.equal(await getLockState(), 'unlocked');
+  });
+
+  test('错误上限后 prefs.lockMinutes 仍能让 alarm 重新调度', async () => {
+    const r = makeRuntime({ lockMinutes: 15 });
+    activeUnset = setLockRuntime(r.rt);
+    await setupEncryption('p');
+
+    // wipe
+    await wipeVaultAndReset();
+    assert.equal(r.alarm.alarms.size, 0);
+
+    // 重新启用加密
+    await setupEncryption('p2');
+    // alarm 应按 lockMinutes=15 重新调度
+    assert.equal(r.alarm.alarms.get('xz-auto-lock')?.delayInMinutes, 15);
   });
 });

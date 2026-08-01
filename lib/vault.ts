@@ -263,6 +263,21 @@ export function createVault(area: StorageArea, options: VaultOptions = {}) {
     stage(K_INDEX, [...ids]);
   }
 
+  /**
+   * 清空所有账号 + index。**prefs 不动** —— 主密码 5 次错误 wipe 后用户大概率
+   * 会重新启用加密，保留 lockMinutes 能按原值预选。
+   *
+   * 用 stage 走 debounce 通道：调用方调 `flush()` 后才落盘，所以 wipe 期间崩了
+   * 也能恢复。acct:* 走 stage(key, undefined) 走 remove 分支。
+   */
+  async function clearAll(): Promise<void> {
+    const raw = await snapshot();
+    for (const key of Object.keys(raw)) {
+      if (key.startsWith('acct:')) stage(key, undefined);
+    }
+    stage(K_INDEX, []);
+  }
+
   async function setPrefs(patch: Partial<Prefs>): Promise<void> {
     stage(K_PREFS, { ...(await getPrefs()), ...patch });
   }
@@ -301,6 +316,7 @@ export function createVault(area: StorageArea, options: VaultOptions = {}) {
     remove,
     reorder,
     importRecords,
+    clearAll,
     getPrefs,
     setPrefs,
     flush,

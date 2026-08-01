@@ -1,11 +1,12 @@
 /**
- * M8 主密码锁状态机。
+ * M8 主密码锁状态机。M10 加上 5 次错误自动 wipe。
  *
  * 三态：`plaintext`（未启用加密）/ `locked`（已启用但当前未解锁）/
  * `unlocked`（已启用且 session 里挂着派生 key）。
  *
  * **持久化布局**：
- * - `storage.sync` 上的 `sec` 记录：salt + verifier 密文 + KDF 参数
+ * - `storage.sync` 上的 `sec` 记录：salt + verifier 密文 + KDF 参数 +
+ *   M10 计数器（attempts / lastAttemptAt）
  * - `storage.session` 上的 `derivedKey`（base64 字节）+ `unlockedAt`（ms）
  *   session 跨 SW 重启存活、关浏览器即失 —— 这是 SW 被回收后还能免
  *   输密码继续用的关键
@@ -19,6 +20,12 @@
  * 1. `chrome.alarms('xz-auto-lock')` —— SW 还活着时定时触发
  * 2. `checkAutoLock()` —— 任何 surface 启动 / 重开时校验 `unlockedAt`
  * 3. `chrome.idle.onStateChanged === 'locked'` —— 系统锁屏立即锁
+ *
+ * **M10 暴力破解防护**：unlock 失败时 sec.attempts+1、lastAttemptAt=now；
+ * 60 分钟内没有再失败，attempts 视作归零（下次失败时按 1 重新累加）。
+ * 达到 MAX_ATTEMPTS=5 触发 wipeVaultAndReset：清空所有账号 + index +
+ * sec + session，lockState 回到 plaintext。**prefs 保留** —— 用户重置
+ * 后大概率会重新启用加密，保留 lockMinutes 让预选更顺手。
  *
  * **迁移自愈**：`setupEncryption` 第 3 步先写 sec 记录，第 4 步才迁
  * 移账号 secret。如果第 3 步后 SW 被回收，下次启动会检测到「有 sec
@@ -47,6 +54,33 @@ export type LockState = 'plaintext' | 'locked' | 'unlocked';
 /** 锁状态 + UI 用的「还没拿到状态」标记 */
 export type LockUiState = LockState | 'loading';
 
+/**
+ * M10：密码错误自动 wipe 阈值。
+ *
+ * 密码管理器的事实标准是 5-10 次 + 5-60 分钟重置窗口。这里选 5 次 + 60 分钟：
+ * - 5 次足够挡住低强度密码的暴力穷举（PBKDF2 100k 迭代 + 5 次 ≈ 1 秒窗口）
+ * - 60 分钟窗口对误触友好，但攻击者每分钟只能重试 1 次
+ */
+export const MAX_ATTEMPTS = 5;
+export const RESET_WINDOW_MS = 60 * 60 * 1000;
+
+/** unlock() 的返回值。wiped=true 时 attemptsLeft/resetAt 无意义 */
+export interface UnlockResult {
+  ok: boolean;
+  /** 密码错误达到阈值，vault 已被自动清空 —— UI 应切回 plaintext */
+  wiped?: boolean;
+  /** 密码错误后还剩几次机会（wiped=false 时才有意义） */
+  attemptsLeft?: number;
+  /** 窗口何时归零（ms 时间戳）。attemptsLeft>0 时有意义 */
+  resetAt?: number;
+}
+
+/** getAttempts() 的返回值。attempts=0 时 resetAt 不返回 */
+export interface AttemptsInfo {
+  attempts: number;
+  resetAt?: number;
+}
+
 /** storage.sync 的最小子集 */
 export interface SyncStorage {
   get(key: string): Promise<Record<string, unknown>>;
@@ -61,10 +95,12 @@ export interface SessionStorage {
   remove(key: string): Promise<void>;
 }
 
-/** vault 的最小子集 —— 只用到 list / update / 偏好读写 */
+/** vault 的最小子集 —— list / update / clearAll / 偏好读写 */
 export interface VaultLike {
   list(): Promise<Account[]>;
   update(id: string, patch: Partial<Account>): Promise<void>;
+  /** 清空所有账号 + index，prefs 保留。给 5 次错误 wipe 用 */
+  clearAll(): Promise<void>;
   getPrefs(): Promise<{ lockMinutes: number }>;
   setPrefs(patch: { lockMinutes?: number }): Promise<void>;
 }
@@ -185,31 +221,121 @@ export async function setupEncryption(password: string): Promise<void> {
 }
 
 /**
- * 用密码解锁。返回 true 表示成功，false 表示密码错（或 sec 不存在）。
+ * 用密码解锁。返回 `UnlockResult`：
  *
- * 失败时不抛错 —— UI 可以直接显示「密码错误」无需 try/catch。
- * 成功后会调 scheduleAutoLockAlarm 重置定时器。
+ * - `ok: true`：解锁成功。session 里挂上了派生 key，可以读 secret
+ * - `wiped: true`：密码错且达到 5 次阈值，vault 已被自动清空。lockState
+ *   回到 plaintext。UI 应切回主界面（此时是空的）
+ * - 否则 `ok: false, wiped: false`：密码错但还有机会。`attemptsLeft` 告诉
+ *   UI 还有几次，`resetAt` 是窗口何时归零（毫秒时间戳）
+ *
+ * **不抛错**：失败场景都收在返回值里，UI 不需要 try/catch。
+ * **竞态**：如果进来时 sec 已被另一 surface 删了（wipe 完成），直接返回
+ * `wiped: true`，让 UI 切回 plaintext 即可。
  */
-export async function unlock(password: string): Promise<boolean> {
+export async function unlock(password: string): Promise<UnlockResult> {
   const r = rt();
   const secBag = await r.sync.get(SEC_KEY);
   const sec = secBag[SEC_KEY] as SecRecord | undefined;
-  if (!sec) return false;
+  // sec 已被另一 surface 删掉 —— 当作 wiped 处理，让 UI 切回 plaintext
+  if (!sec) return { ok: false, wiped: true };
 
   const salt = b64ToBytes(sec.salt);
   const key = await deriveKey(password, salt, sec.iter);
 
   let decrypted: string;
+  let ok: boolean;
   try {
     decrypted = await decrypt(sec.verifyIv, sec.verifyCiphertext, key);
+    ok = decrypted === VERIFIER_PLAINTEXT;
   } catch {
-    return false; // 错 key / 篡改密文都抛 OperationError
+    ok = false; // 错 key / 篡改密文都抛 OperationError
   }
-  if (decrypted !== VERIFIER_PLAINTEXT) return false;
 
-  await writeSessionKey(key);
-  await scheduleAutoLockAlarm();
-  return true;
+  if (ok) {
+    // 成功：attempts 清零写回（如果非零），然后正常解锁
+    if (sec.attempts || sec.lastAttemptAt) {
+      await r.sync.set({
+        [SEC_KEY]: { ...sec, attempts: 0, lastAttemptAt: 0 },
+      });
+    }
+    await writeSessionKey(key);
+    await scheduleAutoLockAlarm();
+    return { ok: true };
+  }
+
+  // 失败：先看窗口是否已过期，过期则在内存里把 attempts 视作 0
+  // （不主动写回 sec —— read-with-write 竞争，下一次 unlock 失败时会写）
+  const now = r.now();
+  const windowExpired =
+    sec.lastAttemptAt !== undefined && now > sec.lastAttemptAt + RESET_WINDOW_MS;
+  const baseAttempts = windowExpired ? 0 : sec.attempts ?? 0;
+  const newAttempts = baseAttempts + 1;
+  const newSec: SecRecord = { ...sec, attempts: newAttempts, lastAttemptAt: now };
+
+  // 写失败也得继续走 wipe —— 不能因为 sync 写挂了就放过攻击者
+  try {
+    await r.sync.set({ [SEC_KEY]: newSec });
+  } catch {
+    /* fall through */
+  }
+
+  if (newAttempts >= MAX_ATTEMPTS) {
+    await wipeVaultAndReset();
+    return { ok: false, wiped: true };
+  }
+
+  return {
+    ok: false,
+    wiped: false,
+    attemptsLeft: MAX_ATTEMPTS - newAttempts,
+    resetAt: now + RESET_WINDOW_MS,
+  };
+}
+
+/**
+ * 读当前错误次数。**纯读**，不写回 sec（避免 read-with-write 竞争）。
+ *
+ * 60 分钟窗口判定完全在内存里完成，下一次 unlock 失败时才把归零后的值
+ * 写回 sec。`unlock` 路径上会主动判断 `lastAttemptAt + RESET_WINDOW_MS`
+ * 是否过期并按需重置 attempts，所以这里懒归零不会让计数器卡住。
+ */
+export async function getAttempts(): Promise<AttemptsInfo> {
+  const r = rt();
+  const secBag = await r.sync.get(SEC_KEY);
+  const sec = secBag[SEC_KEY] as SecRecord | undefined;
+  if (!sec) return { attempts: 0 };
+
+  const baseAttempts = sec.attempts ?? 0;
+  const lastAt = sec.lastAttemptAt;
+  if (lastAt !== undefined && r.now() > lastAt + RESET_WINDOW_MS) {
+    return { attempts: 0 };
+  }
+  if (baseAttempts === 0) return { attempts: 0 };
+  return {
+    attempts: baseAttempts,
+    resetAt: lastAt !== undefined ? lastAt + RESET_WINDOW_MS : undefined,
+  };
+}
+
+/**
+ * 全量 wipe：清空所有账号 + index + sec + session key + 取消 alarm。
+ *
+ * 复用 `lock()` 处理 session + alarm，避免重复实现漂移。vault.clearAll 走
+ * stage 通道，需要等 flush 完成才能确保数据落盘，所以这里 await clearAll
+ * 后再 remove sec —— 顺序保证「先有 wipe 后有 sec 删除」的因果。
+ *
+ * **prefs 保留**：lockMinutes 等下次 setupEncryption 时按原值预选。
+ */
+export async function wipeVaultAndReset(): Promise<void> {
+  const r = rt();
+  // 先清 session + alarm（快速路径，让 lockState 立即变 plaintext）
+  await lock();
+  // 然后清 vault —— 必须落盘，否则 unlock 返回 wiped:true 后 UI 切到 plaintext
+  // 时还会看到残留账号
+  await r.vault.clearAll();
+  // 最后删 sec 记录
+  await r.sync.remove(SEC_KEY);
 }
 
 /**
@@ -260,8 +386,9 @@ export async function checkAutoLock(): Promise<boolean> {
  */
 export async function changePassword(oldPw: string, newPw: string): Promise<boolean> {
   const r = rt();
-  const ok = await unlock(oldPw);
-  if (!ok) return false;
+  const result = await unlock(oldPw);
+  // wiped=true 时旧密码对应的 secret 已经清空，肯定改不了 —— 视为失败
+  if (!result.ok) return false;
 
   const sess = await r.session.get(SESSION_DERIVED_KEY);
   const oldKey = b64ToBytes(sess[SESSION_DERIVED_KEY] as string);
@@ -301,8 +428,9 @@ export async function changePassword(oldPw: string, newPw: string): Promise<bool
  */
 export async function disableEncryption(password: string): Promise<boolean> {
   const r = rt();
-  const ok = await unlock(password);
-  if (!ok) return false;
+  const result = await unlock(password);
+  // wiped=true 时旧密码对应的 secret 已清空，无法 disable —— 视为失败
+  if (!result.ok) return false;
 
   const sess = await r.session.get(SESSION_DERIVED_KEY);
   const key = b64ToBytes(sess[SESSION_DERIVED_KEY] as string);

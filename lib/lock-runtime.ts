@@ -70,6 +70,7 @@ export function installLockRuntime(): void {
     vault: {
       list: () => vault.list(),
       update: (id, patch) => vault.update(id, patch),
+      clearAll: () => vault.clearAll(),
       getPrefs: () => vault.getPrefs(),
       setPrefs: (patch) => vault.setPrefs(patch),
     },
@@ -138,6 +139,9 @@ export function installContentLockRuntime(): void {
       update: async (id, patch) => {
         await messageVaultUpdate(id, patch);
       },
+      // M10：wipeVaultAndReset 只在 popup / options / background 触发（它们都用
+      // 直连 runtime）。content 端不会调用，但接口要满足 —— 给个 noop
+      clearAll: async () => {},
       getPrefs: () => messageVaultGetPrefs(),
       setPrefs: async (patch) => {
         await messageVaultSetPrefs(patch);

@@ -93,6 +93,7 @@ setLockRuntime({
   vault: {
     list: () => vault.list(),
     update: (id, patch) => vault.update(id, patch),
+    clearAll: () => vault.clearAll(),
     getPrefs: () => vault.getPrefs(),
     setPrefs: (patch) => vault.setPrefs(patch),
   },
@@ -170,7 +171,7 @@ type AnyRequest =
   // M8-j：content script 走消息代理读写 storage。
   | {
       type: 'xz-vault-proxy';
-      op: 'get' | 'set' | 'remove' | 'getBytesInUse' | 'list' | 'update' | 'getPrefs' | 'setPrefs';
+      op: 'get' | 'set' | 'remove' | 'getBytesInUse' | 'list' | 'update' | 'getPrefs' | 'setPrefs' | 'clearAll';
       keys?: string | string[] | null;
       items?: Record<string, unknown>;
       id?: string;
@@ -285,6 +286,11 @@ async function handleVaultProxy(
       return { ok: true as const, prefs: await vault.getPrefs() };
     case 'setPrefs':
       if (req.patch) await vault.setPrefs(req.patch as Parameters<typeof vault.setPrefs>[0]);
+      return { ok: true as const };
+    case 'clearAll':
+      // M10：5 次错误自动 wipe 后被 unlock 路径调用。prefs 保留在 vault 内部
+      // 实现，调用方不需要关心。
+      await vault.clearAll();
       return { ok: true as const };
   }
 }

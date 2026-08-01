@@ -228,6 +228,34 @@
   "unlockForgotHint": {
     "message": "Forgot the password? You'll have to clear all account data — there's no recovery."
   },
+  "unlockWarnHeader": {
+    "message": "⚠ 5 wrong attempts will auto-reset the authenticator and wipe all codes.",
+    "description": "Warning banner shown after first failed unlock attempt"
+  },
+  "unlockAttemptsLeft": {
+    "message": "Wrong password. $n$ attempt(s) left.",
+    "description": "Primary error line after wrong password; $n$ is remaining attempts",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "4"
+      }
+    }
+  },
+  "unlockAttemptsResetIn": {
+    "message": "Attempt counter resets in $m$ min.",
+    "description": "Subtitle after wrong password; $m$ is minutes until counter reset",
+    "placeholders": {
+      "m": {
+        "content": "$1",
+        "example": "45"
+      }
+    }
+  },
+  "unlockWiped": {
+    "message": "Attempt limit reached. Authenticator has been reset.",
+    "description": "Shown after the 5th wrong attempt triggers a wipe"
+  },
   "optionsSecurityTitle": {
     "message": "Security",
     "description": "Title of the security section in settings"
