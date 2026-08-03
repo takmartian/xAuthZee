@@ -71,7 +71,16 @@
   gap: 8px;
 }
 
+.codeStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .code {
+  display: inline-block;
   font-family: var(--xz-mono);
   font-size: 19px;
   font-weight: 500;
@@ -79,6 +88,56 @@
   font-variant-numeric: tabular-nums;
   color: var(--xz-accent);
   transition: color 0.18s;
+  /* React 用 key={code} 重挂载元素来在周期切换时重启动画 */
+  animation: codeSwapIn 0.5s cubic-bezier(0.22, 0.8, 0.2, 1);
+  transform-origin: left center;
+  will-change: transform, opacity;
+}
+
+.nextCode {
+  display: inline-block;
+  font-family: var(--xz-mono);
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0.7px;
+  font-variant-numeric: tabular-nums;
+  color: var(--xz-text-dim);
+  opacity: 0.7;
+  /* 略晚一点入场，让「当前码」先就位再演「下一个码」，节奏更像一次替换 */
+  animation: nextCodeIn 0.5s cubic-bezier(0.22, 0.8, 0.2, 1) 0.08s both;
+  will-change: transform, opacity;
+}
+
+@keyframes codeSwapIn {
+  0% {
+    transform: translateY(7px);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes nextCodeIn {
+  0% {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code,
+  .nextCode {
+    animation: none;
+  }
 }
 
 .ringWrap {

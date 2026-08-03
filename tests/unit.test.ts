@@ -162,6 +162,25 @@ describe('倒计时', () => {
     assert.equal(a, b);
     assert.notEqual(a, c);
   });
+
+  test('nextCode 等于「下一周期那一刻」的 code', () => {
+    // 任何时刻 t，nextCode 应该等于 generateCode(t + period * 1000).code
+    const baseAt = 1_700_000_010_000;
+    const { nextCode } = generateCode(account, baseAt);
+    const expected = generateCode(account, baseAt + account.period * 1000).code;
+    assert.equal(nextCode, expected);
+  });
+
+  test('nextCode 在同一周期内稳定，每周期翻转一次', () => {
+    const a = generateCode(account, 1_700_000_010_000);
+    const b = generateCode(account, 1_700_000_039_999);
+    assert.equal(a.nextCode, b.nextCode);
+    // 跨周期后 nextCode 也会变 —— 它的「下一个」随之推进
+    const c = generateCode(account, 1_700_000_040_000);
+    assert.notEqual(a.nextCode, c.nextCode);
+    // 关键不变量：跨周期那一刻的 code 正好等于上一刻的 nextCode
+    assert.equal(c.code, a.nextCode);
+  });
 });
 
 test('验证码分组显示', () => {

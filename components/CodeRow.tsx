@@ -35,7 +35,7 @@ function CodeRowInner({
 }: CodeRowProps) {
   const [toast, setToast] = useState<'filled' | 'copied' | 'failed' | null>(null);
 
-  const { code, progress, secondsRemaining } = generateCode(account, now);
+  const { code, nextCode, progress, secondsRemaining } = generateCode(account, now);
   // 周期即将结束时给个明显颜色提示 —— TOTP 倒计时环通常用红色
   const expiring = secondsRemaining <= 3;
 
@@ -74,12 +74,18 @@ function CodeRowInner({
         </div>
 
         <div className={styles.body}>
-          <span
-            className={styles.code}
-            style={expiring ? { color: 'var(--xz-danger)' } : undefined}
-          >
-            {groupCode(code)}
-          </span>
+          <div className={styles.codeStack}>
+            <span
+              key={code}
+              className={styles.code}
+              style={expiring ? { color: 'var(--xz-danger)' } : undefined}
+            >
+              {groupCode(code)}
+            </span>
+            <span key={nextCode} className={styles.nextCode} aria-label="next code">
+              {groupCode(nextCode)}
+            </span>
+          </div>
           <div className={styles.ringWrap}>
             <Ring
               progress={progress}

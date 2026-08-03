@@ -22,6 +22,12 @@ import {
 export interface CodeResult {
   /** 当前验证码，未分组 */
   code: string;
+  /**
+   * 下一个周期的验证码（已应用于 timestamp + period 时刻）。
+   * 用于 popup 在当前验证码下方小字灰色预览下一个值，让用户
+   * 在当前验证码即将到期时心里有数；动画触发时它会替换掉当前码。
+   */
+  nextCode: string;
   /** 距离下次刷新还有多少秒（1..period） */
   secondsRemaining: number;
   /** 当前周期已过去的比例，0..1，用于画倒计时环 */
@@ -43,18 +49,25 @@ function toTotp(account: Pick<Account, 'secret' | 'algorithm' | 'digits' | 'peri
  *
  * timestamp 显式传入而不是内部取 Date.now()，这样倒计时渲染可以复用同一个
  * 时间基准，也让 RFC 测试向量可以直接验证。
+ *
+ * 同时算出下一个周期的验证码 —— otpauth 库本身只暴露「某个时刻的码」，
+ * 下一个码等价于「timestamp + period 那一刻的码」，复用同一个 TOTP 实例
+ * 不会出现密钥不一致的情况。
  */
 export function generateCode(
   account: Pick<Account, 'secret' | 'algorithm' | 'digits' | 'period'>,
   timestamp: number = Date.now(),
 ): CodeResult {
-  const code = toTotp(account).generate({ timestamp });
+  const totp = toTotp(account);
+  const code = totp.generate({ timestamp });
+  const nextCode = totp.generate({ timestamp: timestamp + account.period * 1000 });
 
   const periodMs = account.period * 1000;
   const elapsed = timestamp % periodMs;
 
   return {
     code,
+    nextCode,
     secondsRemaining: Math.ceil((periodMs - elapsed) / 1000),
     progress: elapsed / periodMs,
   };
