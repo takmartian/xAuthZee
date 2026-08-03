@@ -39,6 +39,41 @@ function CodeRowInner({
   // 周期即将结束时给个明显颜色提示 —— TOTP 倒计时环通常用红色
   const expiring = secondsRemaining <= 3;
 
+  /**
+   * 周期翻转迁移动画：
+   *
+   * 不靠 `key={code}` 重挂载来触发 CSS 动画 —— 那会让当前码和下一个码同时
+   * 重新 fade-in，看起来像「两个码各闪一下」，并没有「下一个码升上来替换
+   * 当前码」的视觉。
+   *
+   * 改用显式状态机：
+   *   idle      —— 正常渲染当前码 + 下一个码
+   *   flipping  —— 周期刚翻转（约 0.5s 内），同时渲染：
+   *               (1) 老的当前码 X：从原位淡出并向上推出
+   *               (2) 新的当前码 Y：等于「翻转前的下一个码」，从下一个码
+   *                   的位置（slotHeight 之下）升起，落到当前码位置
+   *               (3) 新的下一个码 Z：从更下方淡入到下一个码位置
+   *   idle 之后自然衔接，因为 Y = 翻转前的 nextCode，用户能直观看到
+   *   「Y 是从下方升上来的」。
+   */
+  const prevCodeRef = useRef(code);
+  const [flip, setFlip] = useState<{
+    phase: 'idle' | 'flipping';
+    oldCurrent: string;
+  }>({ phase: 'idle', oldCurrent: code });
+
+  useEffect(() => {
+    if (prevCodeRef.current !== code) {
+      // 周期翻转。记录下被替换掉的旧值，0.5s 后回到 idle。
+      setFlip({ phase: 'flipping', oldCurrent: prevCodeRef.current });
+      prevCodeRef.current = code;
+      const id = window.setTimeout(() => {
+        setFlip((f) => (f.phase === 'flipping' ? { phase: 'idle', oldCurrent: code } : f));
+      }, 500);
+      return () => window.clearTimeout(id);
+    }
+  }, [code]);
+
   const handleClick = async () => {
     const result = await onCopy(account);
     if (result === 'filled') {
@@ -75,16 +110,51 @@ function CodeRowInner({
 
         <div className={styles.body}>
           <div className={styles.codeStack}>
-            <span
-              key={code}
-              className={styles.code}
-              style={expiring ? { color: 'var(--xz-danger)' } : undefined}
-            >
-              {groupCode(code)}
-            </span>
-            <span key={nextCode} className={styles.nextCode} aria-label="next code">
-              {groupCode(nextCode)}
-            </span>
+            <div className={styles.codeSlot}>
+              {/* idle 时只渲染当前码；flipping 时只渲染正在淡出的旧当前码 */}
+              {flip.phase === 'flipping' ? (
+                <span
+                  key={`leaving-${flip.oldCurrent}`}
+                  className={styles.codeLeaving}
+                  aria-hidden
+                >
+                  {groupCode(flip.oldCurrent)}
+                </span>
+              ) : (
+                <span
+                  className={styles.code}
+                  style={expiring ? { color: 'var(--xz-danger)' } : undefined}
+                >
+                  {groupCode(code)}
+                </span>
+              )}
+            </div>
+            <div className={styles.nextCodeSlot}>
+              {flip.phase === 'flipping' ? (
+                <span
+                  key={`next-${nextCode}`}
+                  className={styles.nextCodeEntering}
+                  aria-label="next code"
+                >
+                  {groupCode(nextCode)}
+                </span>
+              ) : (
+                <span className={styles.nextCode} aria-label="next code">
+                  {groupCode(nextCode)}
+                </span>
+              )}
+            </div>
+            {/* 迁移层：flipping 时把「新的当前码 = 翻转前的 nextCode」从 next slot
+                升上来，叠加在 codeSlot 上。绝对定位不会撑高父容器。 */}
+            {flip.phase === 'flipping' && (
+              <span
+                key={`migrating-${code}`}
+                className={styles.migratingCode}
+                style={expiring ? { color: 'var(--xz-danger)' } : undefined}
+              >
+                {groupCode(code)}
+              </span>
+            )}
           </div>
           <div className={styles.ringWrap}>
             <Ring
