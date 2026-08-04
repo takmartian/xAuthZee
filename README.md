@@ -30,6 +30,12 @@ A TOTP authenticator extension that lives inside your browser.
 - **One-click fill.** Focus a one-time-code input on any site and
   XAuthZee pops a tiny panel with the matching codes. Click one and
   the code is typed into the input for you.
+- **Next-code preview.** The popup shows the next TOTP code below the
+  current one; when the timer expires, it rises into place and becomes
+  the new current code.
+- **Automatic wipe protection.** Five consecutive wrong master-password
+  attempts within 60 minutes reset the authenticator and erase all
+  stored codes, protecting them from repeated password guessing.
 - **Host bindings.** Bind a code to a specific `hostname`; every page
   on that domain pushes the bound code to the top of the list (handles
   the edge case where one site uses a third-party verification
@@ -50,9 +56,9 @@ A TOTP authenticator extension that lives inside your browser.
 
 The extension is published on three stores:
 
-- **Chrome**: [Chrome Web Store](https://chrome.google.com/webstore/detail/xauthzee) (link after publication)
-- **Edge**: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/xauthzee) (link after publication)
-- **Firefox**: [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/xauthzee/) (link after publication)
+- **Chrome**: [Chrome Web Store](https://chromewebstore.google.com/detail/xauthzee/ehldnhlefdildphjgilbfpflakochfif)
+- **Edge**: To be published
+- **Firefox**: To be published
 
 For local development, see [Building from source](#building-from-source)
 below.

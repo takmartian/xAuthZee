@@ -24,6 +24,8 @@
 
 - **扫码识别** 点扫描二维码按钮，在页面上拖一个框框住二维码，小验子即可识别并添加到验证器！
 - **一键填入** 在任意网站的 OTP 输入框上获得焦点，小验子弹出一个小面板列出匹配的验证码。点一下，验证码就被填进输入框！
+- **下个验证码预览** popup 会在当前验证码下方显示下一个验证码；倒计时结束时，下一个验证码会向上替换当前验证码。
+- **自动 wipe 保护** 60 分钟内连续输错 5 次主密码后，验证器会自动重置并清除所有验证码，防止密码被反复猜测。
 - **域名匹配** 把验证码绑到指定 `域名` 后，访问该域名的所有页面时对应验证码会排到列表顶部。（防止有些DM网站用了什么FinPass的验证码，或者同一个域名下不同子域名有不同账号的情况）
 - **安全密码（可选）** 自己设定锁定密码。自动锁定时器（5/15/30/60 分钟或从不）和系统锁屏都会上锁。
 - **导入 / 导出** 验证码列表可以 JSON 形式在设备间迁移（可选密码加密）。也支持粘贴 Google Authenticator QR 截图。
@@ -32,11 +34,11 @@
 
 ## 安装
 
-扩展已发布到三家商店：
+扩展已发布到商店：
 
-- **Chrome**：[Chrome Web Store](https://chrome.google.com/webstore/detail/xauthzee)（发布后填入）
-- **Edge**：[Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/xauthzee)（发布后填入）
-- **Firefox**：[Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/xauthzee/)（发布后填入）
+- **Chrome**：[Chrome Web Store](https://chromewebstore.google.com/detail/xauthzee/ehldnhlefdildphjgilbfpflakochfif)
+- **Edge**：待发布
+- **Firefox**：待发布
 
 本地开发见下面的 [从源码构建](#从源码构建)。
 
@@ -151,7 +153,7 @@ dev server 把扩展构建到 `.output/chrome-mv3/`，到 `chrome://extensions/`
 
 ## 安全说明
 
-- **主密码无法找回**。忘了密码，加密的 secret 是设计上无法恢复的。在「设置 → 安全 → 关闭加密」还能用原密码关掉；想不起来就重新从原始 QR 添加账号。
+- **主密码无法找回**。忘了密码，加密的 secret 是设计上无法恢复的。作为安全保护，60 分钟内连续输错 5 次会自动重置验证器并清除所有验证码，除此之外没有其他恢复途径。还记得密码时，可以到「设置 → 安全 → 关闭加密」关闭加密；否则只能从原始 QR 重新添加账号。
 - **`session.derivedKey` 不跨设备同步**。它只存在 `chrome.storage.session` 里，每台设备独立。主密码流程：每台设备各自输密码、PBKDF2 派生自己的 key、用来解密同步下来的 `enc1:` 密文。
 - **不申请 host permission**。我们用 `activeTab`（Chrome MV3 推荐的最小权限替代方案）代替 `<all_urls>`。
 
