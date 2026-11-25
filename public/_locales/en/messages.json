@@ -73,6 +73,10 @@
   "rowClickToFill": {
     "message": "Click to copy"
   },
+  "rowDragHandle": {
+    "message": "Drag to reorder",
+    "description": "Tooltip / aria-label for the grip handle on a popup row"
+  },
   "rowCopied": {
     "message": "Copied"
   },
@@ -92,12 +96,6 @@
   },
   "rowDeleteConfirmBody": {
     "message": "This cannot be undone. The deletion will sync to your other devices."
-  },
-  "rowReorderUp": {
-    "message": "Move up"
-  },
-  "rowReorderDown": {
-    "message": "Move down"
   },
   "rowMore": {
     "message": "More",

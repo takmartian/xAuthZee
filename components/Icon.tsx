@@ -102,6 +102,19 @@ export function MoreIcon(p: IconProps) {
   );
 }
 
+export function GripIcon(p: IconProps) {
+  return (
+    <svg {...svgProps(p)}>
+      <circle cx="6" cy="4" r="1" fill="currentColor" />
+      <circle cx="10" cy="4" r="1" fill="currentColor" />
+      <circle cx="6" cy="8" r="1" fill="currentColor" />
+      <circle cx="10" cy="8" r="1" fill="currentColor" />
+      <circle cx="6" cy="12" r="1" fill="currentColor" />
+      <circle cx="10" cy="12" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function SearchIcon(p: IconProps) {
   return (
     <svg {...svgProps(p)}>

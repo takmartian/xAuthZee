@@ -73,6 +73,10 @@
   "rowClickToFill": {
     "message": "点击复制"
   },
+  "rowDragHandle": {
+    "message": "拖动排序",
+    "description": "popup 行左侧拖拽手柄的 tooltip / aria-label"
+  },
   "rowCopied": {
     "message": "已复制"
   },
@@ -92,12 +96,6 @@
   },
   "rowDeleteConfirmBody": {
     "message": "删除后无法恢复。设备之间会通过 sync 立即同步。"
-  },
-  "rowReorderUp": {
-    "message": "上移"
-  },
-  "rowReorderDown": {
-    "message": "下移"
   },
   "rowMore": {
     "message": "更多",

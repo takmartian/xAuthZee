@@ -1,28 +1,20 @@
 {
   "name": "xauthzee",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",
-    "dev:edge": "wxt -b edge",
-    "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
-    "build:edge": "wxt build -b edge",
-    "build:firefox": "wxt build -b firefox",
-    "build:all": "wxt build && wxt build -b edge && wxt build -b firefox",
     "zip": "wxt zip",
-    "zip:edge": "wxt zip -b edge",
-    "zip:firefox": "wxt zip -b firefox",
-    "zip:all": "wxt zip && wxt zip -b edge && wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "test": "node --test \"tests/*.test.ts\"",
     "icons": "node scripts/gen-icons.mjs",
     "store-assets": "node scripts/gen-store-assets.mjs",
+    "postinstall": "wxt prepare",
     "serve:fixtures": "python3 -m http.server 5599 --bind 127.0.0.1 --directory tests/fixtures",
     "test:style": "node tests/style-isolation.mjs",
-    "test:position": "node tests/positioning-strategy.mjs",
-    "postinstall": "wxt prepare"
+    "test:position": "node tests/positioning-strategy.mjs"
   },
   "devDependencies": {
     "@types/jsdom": "^28.0.3",

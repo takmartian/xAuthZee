@@ -4,7 +4,7 @@ import type { Account } from '@/lib/model';
 import { generateCode, groupCode } from '@/lib/totp';
 import { isSharedHost, normalizeHost, registrableDomain } from '@/lib/domain';
 import { Ring } from './Ring';
-import { MoreIcon } from './Icon';
+import { GripIcon, MoreIcon } from './Icon';
 import styles from './CodeRow.module.css';
 
 /** 行点击结果 —— 决定右上角 toast 显示什么文案 */
@@ -22,6 +22,17 @@ export interface CodeRowProps {
   onBindDomain: (account: Account, domain: string) => void;
   /** 从账号里删一个绑定 */
   onUnbindDomain: (account: Account, domain: string) => void;
+  /**
+   * 这一行是否参与拖拽排序。命中域名被置顶的行传 false —— 按需求它们不参与
+   * 排序，所以连手柄都不给（而不是给了再拒绝拖动）。搜索态下整列都是 false。
+   */
+  draggable?: boolean;
+  /** 正在被拖着的一行，压暗显示 */
+  dragging?: boolean;
+  /** 松手后拖动的行会被插到这一行之前，画一条指示线 */
+  dropBefore?: boolean;
+  /** 手柄按下时回调（真正的移动 / 落点计算在 popup 里做） */
+  onGripPointerDown?: (e: React.PointerEvent<HTMLButtonElement>, accountId: string) => void;
 }
 
 function CodeRowInner({
@@ -32,6 +43,10 @@ function CodeRowInner({
   onDelete,
   onBindDomain,
   onUnbindDomain,
+  draggable = false,
+  dragging = false,
+  dropBefore = false,
+  onGripPointerDown,
 }: CodeRowProps) {
   const [toast, setToast] = useState<'filled' | 'copied' | 'failed' | null>(null);
 
@@ -94,7 +109,33 @@ function CodeRowInner({
   const sub = account.issuer && account.label ? account.label : '';
 
   return (
-    <div className={styles.row}>
+    <div
+      className={[
+        styles.row,
+        dragging ? styles.rowDragging : '',
+        dropBefore ? styles.dropBefore : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      // popup 的拖拽逻辑靠这两个属性在真实 DOM 里取行的位置与归属：
+      // 用 data-* 而不是把 ref 一路传下来，CodeRow 就不必知道列表的存在。
+      data-xz-row={account.id}
+      data-xz-draggable={draggable ? '1' : undefined}
+    >
+      {draggable && onGripPointerDown ? (
+        <button
+          type="button"
+          className={styles.grip}
+          title={t('rowDragHandle')}
+          aria-label={t('rowDragHandle')}
+          onPointerDown={(e) => onGripPointerDown(e, account.id)}
+        >
+          <GripIcon size={14} />
+        </button>
+      ) : (
+        // 不可拖的行也占住同样的宽度，否则两种行的标题左边缘会错开 24px
+        <span className={styles.gripSpacer} aria-hidden />
+      )}
       <button
         type="button"
         className={styles.codeButton}
