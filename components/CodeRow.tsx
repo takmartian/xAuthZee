@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '@/lib/i18n';
 import type { Account } from '@/lib/model';
 import { generateCode, groupCode } from '@/lib/totp';
@@ -33,6 +33,8 @@ export interface CodeRowProps {
   dropBefore?: boolean;
   /** 手柄按下时回调（真正的移动 / 落点计算在 popup 里做） */
   onGripPointerDown?: (e: React.PointerEvent<HTMLButtonElement>, accountId: string) => void;
+  /** 打开二维码弹窗 —— 把这个账号分享到别的验证器 */
+  onShowQr: (account: Account) => void;
 }
 
 function CodeRowInner({
@@ -47,8 +49,15 @@ function CodeRowInner({
   dragging = false,
   dropBefore = false,
   onGripPointerDown,
+  onShowQr,
 }: CodeRowProps) {
   const [toast, setToast] = useState<'filled' | 'copied' | 'failed' | null>(null);
+  // 菜单状态放在行这一层，而不是 RowMenu 内部 —— 行右键时也要能打开同一个菜单，
+  // 而右键发生在行上、菜单按钮在行尾，两者不在同一个 DOM 子树里。
+  const [menu, setMenu] = useState<{ open: boolean; anchor: MenuAnchor | null }>({
+    open: false,
+    anchor: null,
+  });
 
   const { code, nextCode, progress, secondsRemaining } = generateCode(account, now);
   // 周期即将结束时给个明显颜色提示 —— TOTP 倒计时环通常用红色
@@ -120,6 +129,13 @@ function CodeRowInner({
       // popup 的拖拽逻辑靠这两个属性在真实 DOM 里取行的位置与归属：
       // 用 data-* 而不是把 ref 一路传下来，CodeRow 就不必知道列表的存在。
       data-xz-row={account.id}
+      // 右键整行 = 打开行尾那个「...」菜单，跟点按钮是同一个菜单。
+      onContextMenu={(e) => {
+        // 屏蔽浏览器原生右键菜单，否则会和我们的菜单叠加出现
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({ open: true, anchor: { x: e.clientX, y: e.clientY, mode: 'cursor' } });
+      }}
       data-xz-draggable={draggable ? '1' : undefined}
     >
       {draggable && onGripPointerDown ? (
@@ -214,9 +230,13 @@ function CodeRowInner({
         <RowMenu
           account={account}
           currentHost={currentHost}
+          menu={menu}
+          onOpen={(anchor) => setMenu({ open: true, anchor })}
+          onClose={() => setMenu({ open: false, anchor: null })}
           onBindDomain={(d) => onBindDomain(account, d)}
           onUnbindDomain={(d) => onUnbindDomain(account, d)}
           onDelete={() => onDelete(account)}
+          onShowQr={() => onShowQr(account)}
         />
       </div>
 
@@ -240,39 +260,70 @@ function CodeRowInner({
 }
 
 /**
+ * 菜单定位信息。
+ *
+ * mode='cursor' —— 右键打开，菜单左上角对齐鼠标位置
+ * mode='button' —— 点「...」打开，菜单右缘对齐按钮右缘（跟原来一样）
+ */
+interface MenuAnchor {
+  x: number;
+  y: number;
+  mode: 'cursor' | 'button';
+  /** button 模式下的参照矩形 */
+  buttonRect?: { top: number; bottom: number; right: number };
+}
+
+/**
  * 行尾「...」菜单。
  *
  * 三个 section（按场景动态生成内容，可能为空）：
  *  1. 当前网站绑定 —— 候选绑定项 + 解绑当前 host（如果有）
  *  2. 其他已绑域名 —— 该账号绑过的、不在当前 host 的其它域名
- *  3. 账号操作 —— 删除账号（危险操作）
+ *  3. 账号操作 —— 二维码（分享到别的验证器）+ 删除账号（危险操作垫底）
  *
- * mousedown 拦截，避免菜单点开后点击事件穿透关闭菜单。
+ * 菜单用 position: fixed 定位，两种打开方式：
+ * - 点按钮：右缘对齐按钮右缘
+ * - 右键行：左上角对齐鼠标，越界时翻到鼠标另一侧
+ *
+ * popup 只有 360px 宽，菜单宽 220-280px，跟随鼠标时经常放不下，
+ * 所以必须做翻转/夹取，否则菜单会被截掉一半。
  */
 function RowMenu({
   account,
   currentHost,
+  menu,
+  onOpen,
+  onClose,
   onBindDomain,
   onUnbindDomain,
   onDelete,
+  onShowQr,
 }: {
   account: Account;
   currentHost: string | null;
+  menu: { open: boolean; anchor: MenuAnchor | null };
+  onOpen: (anchor: MenuAnchor) => void;
+  onClose: () => void;
   onBindDomain: (domain: string) => void;
   onUnbindDomain: (domain: string) => void;
   onDelete: () => void;
+  onShowQr: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+
+  const open = menu.open;
+  const anchor = menu.anchor;
 
   // 点击外面或 Esc 关闭菜单
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (!wrapRef.current?.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') onClose();
     };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
@@ -280,7 +331,51 @@ function RowMenu({
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, onClose]);
+
+  /**
+   * 定位 + 越界翻转。
+   *
+   * 用 useLayoutEffect 是为了在浏览器绘制前就把位置算好 —— 否则菜单会先在
+   * (0,0) 闪一下再跳到位。算完之后 pos 才有值，此时才把菜单显示出来。
+   */
+  useLayoutEffect(() => {
+    if (!open || !anchor) {
+      setPos(null);
+      return;
+    }
+    const el = menuRef.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const M = 4; // 离视口边缘至少留 4px
+
+    let left: number;
+    let top: number;
+
+    if (anchor.mode === 'button' && anchor.buttonRect) {
+      // 与按钮右缘对齐；下方放不下就翻到按钮上方
+      left = anchor.buttonRect.right - rect.width;
+      top = anchor.buttonRect.bottom + 4;
+      if (top + rect.height > vh - M) {
+        const above = anchor.buttonRect.top - rect.height - 4;
+        if (above >= M) top = above;
+      }
+    } else {
+      // 跟随鼠标：放不下就翻到另一侧
+      left = anchor.x;
+      top = anchor.y;
+      if (left + rect.width > vw - M) left = anchor.x - rect.width;
+      if (top + rect.height > vh - M) top = anchor.y - rect.height;
+    }
+
+    // 翻完还越界（菜单比视口还大）就贴边
+    left = Math.max(M, Math.min(left, vw - rect.width - M));
+    top = Math.max(M, Math.min(top, vh - rect.height - M));
+    setPos({ left, top });
+  }, [open, anchor]);
 
   const host = currentHost ? normalizeHost(currentHost) : '';
   const registrable = host ? registrableDomain(host) : '';
@@ -309,16 +404,32 @@ function RowMenu({
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setOpen((v) => !v);
+    if (open) {
+      onClose();
+      return;
+    }
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    onOpen({
+      x: rect.right,
+      y: rect.bottom,
+      mode: 'button',
+      buttonRect: { top: rect.top, bottom: rect.bottom, right: rect.right },
+    });
   };
 
   const handleDelete = () => {
-    setOpen(false);
+    onClose();
     onDelete();
   };
 
+  const handleShowQr = () => {
+    onClose();
+    onShowQr();
+  };
+
   return (
-    <div className={styles.menuWrap} ref={ref}>
+    <div className={styles.menuWrap} ref={wrapRef}>
       <button
         type="button"
         className={styles.iconButton}
@@ -332,7 +443,17 @@ function RowMenu({
       </button>
 
       {open && (
-        <div className={styles.menu} role="menu">
+        <div
+          ref={menuRef}
+          className={styles.menu}
+          role="menu"
+          style={{
+            left: pos?.left ?? anchor?.x ?? 0,
+            top: pos?.top ?? anchor?.y ?? 0,
+            // 位置算完之前先藏着，避免在 (0,0) 闪一下
+            visibility: pos ? 'visible' : 'hidden',
+          }}
+        >
           {/* Section 1：当前网站绑定 */}
           <div className={styles.menuSection}>
             <div className={styles.menuSectionHeader}>{t('rowMenuSectionCurrent')}</div>
@@ -350,7 +471,7 @@ function RowMenu({
                 className={styles.menuItem}
                 onClick={() => {
                   onBindDomain(c.domain);
-                  setOpen(false);
+                  onClose();
                 }}
               >
                 <span className={styles.menuItemDomain}>{c.domain}</span>
@@ -368,7 +489,7 @@ function RowMenu({
                 className={`${styles.menuItem} ${styles.menuItemDanger}`}
                 onClick={() => {
                   onUnbindDomain(host);
-                  setOpen(false);
+                  onClose();
                 }}
               >
                 <span className={styles.menuItemDomain}>{t('rowMenuUnbind', host)}</span>
@@ -392,7 +513,7 @@ function RowMenu({
                     className={`${styles.menuItem} ${styles.menuItemDanger}`}
                     onClick={() => {
                       onUnbindDomain(d);
-                      setOpen(false);
+                      onClose();
                     }}
                     title={t('rowMenuUnbindTitle')}
                   >
@@ -404,9 +525,21 @@ function RowMenu({
             </>
           )}
 
-          {/* Section 3：账号操作（危险） */}
+          {/* Section 3：账号操作 */}
           <div className={styles.menuDivider} />
           <div className={styles.menuSection}>
+            {/* 二维码：把这个账号分享到别的验证器（Google Authenticator 等）。
+                放在删除前面 —— 危险操作永远垫底。 */}
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={handleShowQr}
+              title={t('rowShowQr')}
+            >
+              <span className={styles.menuItemDomain}>{t('rowShowQr')}</span>
+              <span className={styles.menuItemMode}>{t('rowMenuTransfer')}</span>
+            </button>
             <button
               type="button"
               role="menuitem"

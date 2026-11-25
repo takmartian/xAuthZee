@@ -8,6 +8,7 @@ import { applyRestOrder, moveItem, orderByIds, slotForPointerY, splitPinned } fr
 import { CodeRow, type CopyResult } from '@/components/CodeRow';
 import { AddDialog } from '@/components/AddDialog';
 import { UnlockScreen } from '@/components/UnlockScreen';
+import { QrModal } from '@/components/QrModal';
 import { QrIcon, KeyboardIcon, SearchIcon } from '@/components/Icon';
 import {
   installLockRuntime,
@@ -58,6 +59,8 @@ export default function App() {
   // 待二次确认删除的账号。点「...」→「删除」先把它存这里，弹
   // confirm dialog 让用户确认 —— 避免误触把账号干掉。
   const [pendingDelete, setPendingDelete] = useState<Account | null>(null);
+  // 二维码弹窗展示的账号。菜单里点「二维码」或行内右键后选它都会打开。
+  const [qrAccount, setQrAccount] = useState<Account | null>(null);
 
   // 装 lock runtime + 初次 lockState + 监听变化 + 兜底自动锁
   useEffect(() => {
@@ -472,6 +475,7 @@ export default function App() {
                 layout.restIds[dragView.slot] === account.id
               }
               onGripPointerDown={handleGripPointerDown}
+              onShowQr={(a) => setQrAccount(a)}
               onCopy={handleCopy}
               onDelete={handleDelete}
               onBindDomain={(a, d) => void handleBindDomain(a, d)}
@@ -506,6 +510,10 @@ export default function App() {
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => void confirmDelete()}
         />
+      )}
+
+      {qrAccount && (
+        <QrModal account={qrAccount} onClose={() => setQrAccount(null)} />
       )}
     </div>
   );

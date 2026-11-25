@@ -101,6 +101,46 @@
     "message": "更多",
     "description": "打开行尾菜单，用于绑定等操作"
   },
+  "rowShowQr": {
+    "message": "二维码",
+    "description": "菜单项：打开二维码，把这个账号迁移到别的验证器"
+  },
+  "rowMenuTransfer": {
+    "message": "迁移",
+    "description": "二维码菜单项右侧的标签"
+  },
+  "qrTitle": {
+    "message": "添加到其他验证器",
+    "description": "二维码弹窗的标题"
+  },
+  "qrSecretLabel": {
+    "message": "密钥",
+    "description": "二维码弹窗里密钥那一栏的标签"
+  },
+  "qrCopySecret": {
+    "message": "复制密钥",
+    "description": "复制 Base32 密钥到剪贴板的按钮"
+  },
+  "qrCopyLink": {
+    "message": "复制链接",
+    "description": "复制 otpauth:// 链接到剪贴板的按钮"
+  },
+  "qrCopiedSecret": {
+    "message": "密钥已复制",
+    "description": "复制密钥后的提示"
+  },
+  "qrCopiedLink": {
+    "message": "链接已复制",
+    "description": "复制链接后的提示"
+  },
+  "qrClose": {
+    "message": "关闭",
+    "description": "关闭二维码弹窗的按钮"
+  },
+  "qrFailed": {
+    "message": "这个账号没法生成二维码。",
+    "description": "账号没有可用密钥时二维码弹窗里的提示"
+  },
   "rowMenuBindExact": {
     "message": "精确匹配",
     "description": "仅绑定当前 host，不覆盖子域"

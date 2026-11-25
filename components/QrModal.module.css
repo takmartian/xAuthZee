@@ -1,0 +1,187 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.card {
+  width: 100%;
+  background: var(--xz-bg);
+  border: 1px solid var(--xz-border);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.titleBox {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  font-size: 11.5px;
+  color: var(--xz-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xz-text-dim);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--xz-bg-subtle);
+  color: var(--xz-text);
+}
+
+/* 二维码本体：白底黑码，不跟随主题反色 ——
+   扫码器需要的是高对比，主题色在这里只会添乱。 */
+.qrWrap {
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  background: #fff;
+  border-radius: 6px;
+}
+
+.qr {
+  width: 100%;
+  /* popup 宽 360，卡片内边距 + 二维码内边距各扣掉一点，
+     240px 是能给到的上限 —— 像素越多，手机扫屏幕越稳。 */
+  max-width: 240px;
+  height: auto;
+  display: block;
+}
+
+.qrBg {
+  fill: #fff;
+}
+
+.qrFg {
+  fill: #000;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 9px;
+  background: var(--xz-bg-subtle);
+  border: 1px solid var(--xz-border);
+  border-radius: 6px;
+}
+
+.fieldLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--xz-text-dim);
+}
+
+.fieldValue {
+  font-family: var(--xz-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--xz-text);
+  word-break: break-all;
+  user-select: text;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.secondary {
+  flex: 1 1 0;
+  height: 30px;
+  border: 1px solid var(--xz-border);
+  border-radius: var(--xz-radius-sm);
+  background: transparent;
+  color: var(--xz-text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.secondary:hover {
+  background: var(--xz-bg-subtle);
+}
+
+.toast {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--xz-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+  animation: toastFade 1.2s ease-out forwards;
+}
+
+.error {
+  margin: 0;
+  padding: 18px 10px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--xz-text-dim);
+}
+
+@keyframes toastFade {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

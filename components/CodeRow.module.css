@@ -365,10 +365,10 @@
   display: inline-flex;
 }
 
+/* 菜单用 fixed 定位：既能让它跟随右键的鼠标位置，也能在点「...」时
+   右对齐到按钮。fixed 不受祖先 overflow 裁剪，popup 列表滚动时也不会被切掉。 */
 .menu {
-  position: absolute;
-  top: 26px;
-  right: 0;
+  position: fixed;
   z-index: 1000;
   min-width: 220px;
   max-width: 280px;
