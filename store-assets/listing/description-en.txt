@@ -24,18 +24,20 @@ One-click fill. Focus a one-time-code input on any site and XAuthZee shows a sma
 
 Host bindings. Bind accounts to specific hostnames so that when you visit, say, github.com, the right code is at the top of the list.
 
+Drag to reorder. Grab the handle on the left of a row to rearrange your codes; the order syncs to your other devices. Codes matched by a binding on the current site stay pinned at the top and never take part in reordering.
+
 Master password (optional). Encrypt your secret keys with a password you choose. The derived key lives in session storage and is cleared when the browser closes. The auto-lock timer (5/15/30/60 minutes or never) and the system's own lock screen both lock the extension immediately.
 
 Import / export. Move accounts between devices as JSON. You can also paste a otpauth-migration:// link (Google Authenticator's transfer format) or its QR screenshot.
 
-Cross-device sync. Because accounts are stored in chrome.storage.sync, they show up on every Chrome and Edge you sign in to.
+Cross-device sync. Because accounts are stored in chrome.storage.sync, they show up on every other Chrome signed in to the same Google account.
 
 i18n. English and Simplified Chinese UI; the extension follows the browser's language.
 
 
 Permissions, briefly
 
-XAuthZee asks for the minimum set of permissions Chrome / Edge require and nothing more.
+XAuthZee asks for the minimum set of permissions Chrome requires and nothing more.
 
 storage — to save your accounts and preferences locally and sync them through your browser.
 
@@ -59,7 +61,7 @@ FAQ
 
 Q: Where are my accounts stored?
 
-A: Locally in your browser. If you sign in to a browser account (Google / Microsoft), your browser syncs them to your other devices using its own encrypted sync. The developer never sees them.
+A: Locally in your browser. If you sign in to the same Google account, Chrome syncs them to your other devices using its own encrypted sync. The developer never sees them.
 
 Q: Does it support HOTP?
 

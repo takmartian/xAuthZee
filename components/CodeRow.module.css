@@ -9,6 +9,59 @@
   border-bottom: none;
 }
 
+/* 拖拽手柄。只在参与排序的行上出现；置顶行用同样宽的占位撑住，
+   保证两种行的标题左边缘对齐。
+
+   touch-action: none 是必须的 —— popup 列表本身可滚动，不声明的话
+   在触屏上起手就会被当成滚动，pointermove 直接不再发给我们。 */
+.grip {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--xz-text-dim);
+  opacity: 0.45;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.grip:hover {
+  opacity: 1;
+  color: var(--xz-text);
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+.grip:focus-visible {
+  outline: 2px solid var(--xz-accent);
+  outline-offset: -2px;
+  opacity: 1;
+}
+
+.gripSpacer {
+  flex-shrink: 0;
+  width: 24px;
+}
+
+/* 正在被拖的那一行：压暗，让它看起来「离开了原位」 */
+.rowDragging {
+  opacity: 0.42;
+}
+
+/* 松手后这一行会被插到它前面 —— 用内阴影画一条 2px 指示线，
+   不用 border 是为了不改变行高（行高一变整列会抖） */
+.dropBefore {
+  box-shadow: inset 0 2px 0 0 var(--xz-accent);
+}
+
 .codeButton {
   flex: 1;
   min-width: 0;
