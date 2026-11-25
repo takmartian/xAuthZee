@@ -4,9 +4,11 @@ import { t } from '@/lib/i18n';
 import { vault, watchVault } from '@/lib/storage';
 import type { Account } from '@/lib/model';
 import { anyMatch } from '@/lib/domain';
+import { applyRestOrder, moveItem, orderByIds, slotForPointerY, splitPinned } from '@/lib/order';
 import { CodeRow, type CopyResult } from '@/components/CodeRow';
 import { AddDialog } from '@/components/AddDialog';
 import { UnlockScreen } from '@/components/UnlockScreen';
+import { QrModal } from '@/components/QrModal';
 import { QrIcon, KeyboardIcon, SearchIcon } from '@/components/Icon';
 import {
   installLockRuntime,
@@ -57,6 +59,8 @@ export default function App() {
   // 待二次确认删除的账号。点「...」→「删除」先把它存这里，弹
   // confirm dialog 让用户确认 —— 避免误触把账号干掉。
   const [pendingDelete, setPendingDelete] = useState<Account | null>(null);
+  // 二维码弹窗展示的账号。菜单里点「二维码」或行内右键后选它都会打开。
+  const [qrAccount, setQrAccount] = useState<Account | null>(null);
 
   // 装 lock runtime + 初次 lockState + 监听变化 + 兜底自动锁
   useEffect(() => {
@@ -105,6 +109,15 @@ export default function App() {
       unwatch();
     };
   }, [lockState]);
+
+  // popup 关闭前把还在 debounce 缓冲里的改动推下去。删除账号、绑定域名、
+  // 拖拽排序都是 stage() 之后等 250ms，而 popup 一关上下文就销毁了 ——
+  // 光靠 debounce 定时器会有「刚操作完就关掉，改动没保存」的情况。
+  useEffect(() => {
+    const onHide = () => void vault.flush();
+    window.addEventListener('pagehide', onHide);
+    return () => window.removeEventListener('pagehide', onHide);
+  }, []);
 
   // 倒计时驱动：每秒重算一次 now，让 CodeRow 里的 Ring 跟着刷新
   useEffect(() => {
@@ -240,30 +253,173 @@ export default function App() {
   const scanning = scanStatus.kind === 'working';
 
   /**
-   * 搜索 + 域名命中混合排序：
-   *  - query 非空：只过滤，不做域名置顶（用户既然在搜，就按搜索结果顺序）
-   *  - query 空：命中当前 host 的账号提到顶部
+   * 列表布局：搜索 + 域名置顶 + 可重排区间。
+   *
+   *  - query 非空：只过滤，不做域名置顶（用户既然在搜，就按搜索结果顺序），
+   *    同时整列禁用拖拽 —— 搜索结果是 index 的一个子集，在子集里拖出来的
+   *    「第 3 位」映射不回全局顺序，与其编一套规则不如禁掉。
+   *  - query 空：命中当前 host 的账号提到顶部，并且不参与排序（连手柄都不给）。
+   *    剩下那些才是 reorderable 的区间。
+   *
+   * 返回 restIds / allIds 是给拖拽用的：落点算完之后要拿它们还原出完整的
+   * index 再写盘（见 lib/order.ts 的说明）。
    */
-  const visibleAccounts = useMemo(() => {
+  const layout = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? accounts.filter((a) => {
-          const issuer = a.issuer.toLowerCase();
-          const label = a.label.toLowerCase();
-          return issuer.includes(q) || label.includes(q);
-        })
-      : accounts;
+    const allIds = accounts.map((a) => a.id);
 
-    if (q || !currentHost) return filtered;
-
-    const hit: Account[] = [];
-    const rest: Account[] = [];
-    for (const a of filtered) {
-      if (anyMatch(currentHost, a.domains).hit) hit.push(a);
-      else rest.push(a);
+    if (q) {
+      const filtered = accounts.filter((a) => {
+        const issuer = a.issuer.toLowerCase();
+        const label = a.label.toLowerCase();
+        return issuer.includes(q) || label.includes(q);
+      });
+      return {
+        displayed: filtered,
+        pinnedIds: new Set<string>(),
+        restIds: filtered.map((a) => a.id),
+        allIds,
+        reorderable: false,
+      };
     }
-    return [...hit, ...rest];
+
+    const { pinned, rest } = splitPinned(
+      allIds,
+      new Set(
+        currentHost
+          ? accounts.filter((a) => anyMatch(currentHost, a.domains).hit).map((a) => a.id)
+          : [],
+      ),
+    );
+    const byId = new Map(accounts.map((a) => [a.id, a]));
+    return {
+      displayed: [...pinned, ...rest].map((id) => byId.get(id)!).filter(Boolean),
+      pinnedIds: new Set(pinned),
+      restIds: rest,
+      allIds,
+      reorderable: true,
+    };
   }, [accounts, currentHost, query]);
+
+  // ------------------------------------------------------------ 拖拽排序
+
+  /**
+   * 拖拽实现要点（不引入 dnd 库，popup 里手写几十行更可控）：
+   *
+   * 1. 监听器在按下手柄那一刻**命令式**挂到 window 上，而不是靠 useEffect
+   *    订阅 state。原因：popup 每秒都要为倒计时重渲染一次，effect 驱动的
+   *    监听器会在这一秒里反复解绑/重绑，抖一下就可能漏掉 pointerup。
+   *
+   * 2. 起手时把 restIds / pinnedIds / 完整 index 全部快照进 dragRef。
+   *    拖到一半时 watchVault 可能因为别的设备写入而刷新 accounts，如果落点
+   *    计算依赖当时的 accounts，顺序会跳变；用快照则这一下拖动一定落在
+   *    用户按下手柄时看到的那个列表上。
+   *
+   * 3. 3px 位移阈值：把手本身是个按钮，轻微抖动不该变成拖拽。
+   */
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    started: boolean;
+    slot: number;
+    restIds: string[];
+    pinnedIds: ReadonlySet<string>;
+    baseIndex: string[];
+  } | null>(null);
+  const [dragView, setDragView] = useState<{ id: string; slot: number } | null>(null);
+
+  const handleGripPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>, id: string) => {
+      if (!layout.reorderable || layout.restIds.length < 2) return;
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const snap = {
+        id,
+        startX: e.clientX,
+        startY: e.clientY,
+        started: false,
+        slot: -1,
+        restIds: layout.restIds,
+        pinnedIds: layout.pinnedIds,
+        baseIndex: layout.allIds,
+      };
+      dragRef.current = snap;
+      document.body.style.userSelect = 'none';
+
+      /** 取参与排序的那些行的垂直中心，顺序严格按快照里的 restIds */
+      const centersOf = (): number[] => {
+        const map = new Map<string, number>();
+        listRef.current
+          ?.querySelectorAll<HTMLElement>('[data-xz-row]')
+          .forEach((el) => {
+            const rid = el.dataset.xzRow;
+            if (!rid) return;
+            const r = el.getBoundingClientRect();
+            map.set(rid, r.top + r.height / 2);
+          });
+        // 排除被拖行自己：moveItem 的下标是「摘除之后」的位置，算进自己的
+        // 中心会让每次向下挪动都多跳一格。
+        return snap.restIds
+          .filter((rid) => rid !== snap.id)
+          .map((rid) => map.get(rid))
+          .filter((v): v is number => typeof v === 'number');
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        if (!snap.started) {
+          if (Math.abs(ev.clientX - snap.startX) < 3 && Math.abs(ev.clientY - snap.startY) < 3) return;
+          snap.started = true;
+        }
+        const slot = slotForPointerY(centersOf(), ev.clientY);
+        snap.slot = slot;
+        setDragView((prev) => (prev && prev.id === snap.id && prev.slot === slot ? prev : { id: snap.id, slot }));
+      };
+
+      const finish = (commit: boolean) => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
+        window.removeEventListener('keydown', onKey);
+        document.body.style.userSelect = '';
+        dragRef.current = null;
+        setDragView(null);
+
+        if (!commit || !snap.started || snap.slot < 0) return;
+        const from = snap.restIds.indexOf(snap.id);
+        if (from < 0) return;
+        const newRest = moveItem(snap.restIds, from, snap.slot);
+        if (newRest.join() === snap.restIds.join()) return; // 原地落回，别浪费一次 sync 写
+
+        // 关键一步：写回的是「完整 index」，置顶项留在它原来的槽位上。
+        // 直接写可见顺序会把置顶项的位置也固化，换个站点打开就莫名其妙。
+        const full = applyRestOrder(snap.baseIndex, snap.pinnedIds, newRest);
+        // 本地立刻按新顺序排一次，不等 storage.onChanged 绕回来
+        setAccounts((prev) => orderByIds(prev, full));
+        // 立刻落盘，不等 250ms debounce。用户很可能「拖完就点空白处关掉 popup」，
+        // 而 popup 一关整个 JS 上下文就没了，还堵在 pending 里的那次写入会静默丢掉。
+        void (async () => {
+          await vault.reorder(full);
+          await vault.flush();
+        })();
+      };
+
+      const onUp = () => finish(true);
+      const onCancel = () => finish(false);
+      const onKey = (ev: KeyboardEvent) => {
+        if (ev.key === 'Escape') finish(false);
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
+      window.addEventListener('keydown', onKey);
+    },
+    [layout],
+  );
 
   // loading 态：runtime 还没装完，避免渲染主界面出现 codes 抖动
   if (lockState === 'loading') {
@@ -290,11 +446,11 @@ export default function App() {
         value={query}
         onChange={setQuery}
         totalCount={accounts.length}
-        matchedCount={visibleAccounts.length}
+        matchedCount={layout.displayed.length}
       />
 
-      <div className={styles.list} role="list">
-        {visibleAccounts.length === 0 ? (
+      <div className={styles.list} role="list" ref={listRef}>
+        {layout.displayed.length === 0 ? (
           <div className={styles.empty}>
             <p className={styles.emptyTitle}>
               {query ? t('popupSearchEmpty') : t('popupEmpty')}
@@ -304,12 +460,22 @@ export default function App() {
             </p>
           </div>
         ) : (
-          visibleAccounts.map((account) => (
+          layout.displayed.map((account) => (
             <CodeRow
               key={account.id}
               account={account}
               now={now}
               currentHost={currentHost}
+              draggable={layout.reorderable && !layout.pinnedIds.has(account.id)}
+              dragging={dragView?.id === account.id}
+              dropBefore={
+                !!dragView &&
+                dragView.id !== account.id &&
+                layout.reorderable &&
+                layout.restIds[dragView.slot] === account.id
+              }
+              onGripPointerDown={handleGripPointerDown}
+              onShowQr={(a) => setQrAccount(a)}
               onCopy={handleCopy}
               onDelete={handleDelete}
               onBindDomain={(a, d) => void handleBindDomain(a, d)}
@@ -344,6 +510,10 @@ export default function App() {
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => void confirmDelete()}
         />
+      )}
+
+      {qrAccount && (
+        <QrModal account={qrAccount} onClose={() => setQrAccount(null)} />
       )}
     </div>
   );

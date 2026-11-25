@@ -1,4 +1,4 @@
-// 生成 Chrome / Edge 上架所需的 promo tiles 和 screenshots 占位。
+// 生成 Chrome Web Store 上架所需的 promo tiles 和 screenshots 占位。
 //
 //   npm run store-assets
 //
@@ -13,7 +13,7 @@
 //
 // 设计原则：纯 Node + 手写 PNG 编码（沿用 gen-icons.mjs 的 encoder），
 // 不引入 sharp / canvas。文本用 5x7 ASCII bitmap 字体（中文字符
-// 暂不支持 —— Chrome Web Store 主语言是英文，Edge 也接受英文）。
+// 暂不支持 —— Chrome Web Store 主语言是英文，英文版 tile 即可满足要求）。
 // 真实上架前建议用设计工具（Sketch / Figma）出更精细的版本替换。
 
 import { deflateSync } from 'node:zlib';

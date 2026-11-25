@@ -41,48 +41,40 @@ A TOTP authenticator extension that lives inside your browser.
   the edge case where one site uses a third-party verification
   provider, or one domain hosts multiple sub-domains each with its own
   account).
+- **Drag to reorder.** Grab the handle on a row to rearrange your
+  codes; the order is stored in `index` and travels through sync.
+  Codes pinned by a host binding never take part in reordering — they
+  stay at the top. Reordering is disabled while searching, since
+  rearranging a filtered subset would silently rewrite the global order.
 - **Master password (optional).** Set your own lock password. The
   auto-lock timer (5 / 15 / 30 / 60 minutes, or never) and the OS
   lock screen both lock the extension immediately.
 - **Import / export.** Move your codes between devices as JSON
   (optionally password-protected). You can also paste a Google
   Authenticator QR screenshot.
-- **Cross-device sync.** Every Chrome / Edge signed in to the same
-  browser account picks up your codes automatically.
+- **Cross-device sync.** Every other Chrome signed in to the same
+  Google account picks up your codes automatically.
 - **i18n.** English + Simplified Chinese UI; the extension follows
   the browser language.
 
 ## Install
 
-The extension is published on three stores:
+The extension is published:
 
 - **Chrome**: [Chrome Web Store](https://chromewebstore.google.com/detail/xauthzee/ehldnhlefdildphjgilbfpflakochfif)
-- **Edge**: To be published
-- **Firefox**: To be published
+
+This extension targets **Chrome only** (plus Chromium-based browsers
+that load Chrome packages). It used to ship Edge and Firefox builds
+as well; that was dropped because two extra store listings and a set
+of Firefox API caveats bought nothing — the users are all on Chrome.
 
 For local development, see [Building from source](#building-from-source)
 below.
 
-## Firefox limitations
-
-Firefox WebExtensions does not expose the `idle` API, so the
-"immediately lock when the OS screen locks" feature is unavailable on
-Firefox. Everything else is identical:
-
-- The auto-lock timer (5 / 15 / 30 / 60 minutes or never) still
-  fires normally.
-- All other auto-lock triggers (manual lock, idle alarm, wipe after
-  5 wrong passwords) still work.
-- Cross-device sync uses the user's Mozilla account via Firefox Sync
-  instead of Chrome Sync / Microsoft Account.
-- AMO submission form answers are at
-  [`store-assets/listing/privacy-practices-firefox-en.txt`](store-assets/listing/privacy-practices-firefox-en.txt)
-  (or `-zh.txt` for the Chinese version).
-
 ## Permissions, briefly
 
-XAuthZee asks for the minimum set of permissions Chrome / Edge
-require and nothing more:
+XAuthZee asks for the minimum set of permissions Chrome requires and
+nothing more:
 
 | Permission     | Why                                                                                          |
 | -------------- | -------------------------------------------------------------------------------------------- |
@@ -101,8 +93,8 @@ shows every line of executable code.
 XAuthZee's privacy promise: **all your data stays on your device.**
 
 - All account data lives in `chrome.storage.sync` on your device.
-  Cross-device sync is handled by your browser (Chrome Sync or
-  Microsoft Account), never by any server we operate.
+  Cross-device sync is handled by your browser (Chrome Sync), never by
+  any server we operate.
 - The extension never makes HTTP requests to any server we operate.
   The only `fetch()` call processes a `data:` URI from
   `chrome.tabs.captureVisibleTab` when you click the scan button.
@@ -110,12 +102,14 @@ XAuthZee's privacy promise: **all your data stays on your device.**
 
 The full privacy policy is at
 [`store-assets/privacy.md`](store-assets/privacy.md). The
-[Chrome / Edge store listing](store-assets/listing/) has the
+[Chrome store listing](store-assets/listing/) has the
 plain-text version ready to paste into the developer console.
 
 ## Building from source
 
-Requirements: **Node 20+** (tested on Node 24).
+Requirements: **Node 22+** (tested on Node 24). The unit tests run
+`.ts` files directly through Node's type stripping; on Node 20
+`npm test` dies with `ERR_UNKNOWN_FILE_EXTENSION`.
 
 ```bash
 git clone https://github.com/takmartian/xAuthZee.git
@@ -132,16 +126,8 @@ that folder in `chrome://extensions/` with "Developer mode" on.
 | Command                | What it does                                                                |
 | ---------------------- | --------------------------------------------------------------------------- |
 | `npm run dev`          | WXT dev server (Chrome target).                                              |
-| `npm run dev:edge`     | WXT dev server (Edge target).                                                |
-| `npm run dev:firefox`  | WXT dev server (Firefox target).                                              |
 | `npm run build`        | Production build to `.output/chrome-mv3/`.                                  |
-| `npm run build:edge`   | Production build to `.output/edge-mv3/`.                                     |
-| `npm run build:firefox`| Production build to `.output/firefox-mv3/`.                                  |
-| `npm run build:all`    | Build for all three targets in sequence.                                     |
 | `npm run zip`          | Build + zip for Chrome Web Store.                                            |
-| `npm run zip:edge`     | Build + zip for Edge Add-ons.                                                |
-| `npm run zip:firefox`  | Build + zip for Firefox Add-ons (also emits a `-sources.zip` AMO requires). |
-| `npm run zip:all`      | Zip for all three stores in sequence.                                        |
 | `npm run compile`      | TypeScript type check only (`tsc --noEmit`).                                  |
 | `npm test`             | Unit tests (`node --test tests/*.test.ts`).                                  |
 | `npm run icons`        | Regenerate the four extension icons in `public/icon/`.                       |
@@ -173,13 +159,14 @@ checklist and copy-paste answers for each store's privacy form.
 │   ├── qr/decode.ts              # jsQR wrapper
 │   ├── totp.ts                   # TOTP code generation
 │   ├── detect.ts                 # OTP input field detection (incl. six-grid)
-│   └── domain.ts                 # Host matching (exact / registrable / shared)
+│   ├── domain.ts                 # Host matching (exact / registrable / shared)
+│   └── order.ts                  # Drag reorder (pinned slots stay put)
 ├── tests/                # node --test unit tests
 ├── scripts/              # Build-time helpers
 │   ├── gen-icons.mjs             # Generate 16/32/48/128 PNG icons
 │   └── gen-store-assets.mjs      # Generate promo tiles + screenshot placeholders
 ├── styles/               # Shared CSS (theme tokens)
-├── store-assets/         # Material for Chrome Web Store / Edge Add-ons
+├── store-assets/         # Material for the Chrome Web Store
 │   ├── privacy.md                # Privacy policy
 │   ├── listing/                  # Description + privacy practices (plain text)
 │   ├── promo/                    # 440x280, 920x680, 1400x560 promo tiles

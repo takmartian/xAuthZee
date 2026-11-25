@@ -25,39 +25,27 @@
 - **扫码识别** 点扫描二维码按钮，在页面上拖一个框框住二维码，小验子即可识别并添加到验证器！
 - **一键填入** 在任意网站的 OTP 输入框上获得焦点，小验子弹出一个小面板列出匹配的验证码。点一下，验证码就被填进输入框！
 - **下个验证码预览** popup 会在当前验证码下方显示下一个验证码；倒计时结束时，下一个验证码会向上替换当前验证码。
+- **拖拽排序** 拖动手柄可以调整验证码顺序，顺序存在 `index` 里并跟着 sync 走。命中域名被置顶的验证码不参与排序，永远保持置顶；搜索状态下不提供拖拽（在过滤出来的子集里改全局顺序容易看错）。
 - **自动 wipe 保护** 60 分钟内连续输错 5 次主密码后，验证器会自动重置并清除所有验证码，防止密码被反复猜测。
 - **域名匹配** 把验证码绑到指定 `域名` 后，访问该域名的所有页面时对应验证码会排到列表顶部。（防止有些DM网站用了什么FinPass的验证码，或者同一个域名下不同子域名有不同账号的情况）
 - **安全密码（可选）** 自己设定锁定密码。自动锁定时器（5/15/30/60 分钟或从不）和系统锁屏都会上锁。
 - **导入 / 导出** 验证码列表可以 JSON 形式在设备间迁移（可选密码加密）。也支持粘贴 Google Authenticator QR 截图。
-- **跨设备同步** 登录同一浏览器账号的 Chrome / Edge 都会自动同步。
+- **跨设备同步** 登录同一 Google 账号的其他 Chrome 都会自动同步。
 - **i18n** 英文 + 简体中文 UI，跟着浏览器语言走。
 
 ## 安装
 
-扩展已发布到商店：
+扩展已发布：
 
 - **Chrome**：[Chrome Web Store](https://chromewebstore.google.com/detail/xauthzee/ehldnhlefdildphjgilbfpflakochfif)
-- **Edge**：待发布
-- **Firefox**：待发布
+
+本扩展**只针对 Chrome**（以及能加载 Chrome 包的同内核浏览器）。曾经同时维护 Edge / Firefox 三个目标，后来砍掉了 —— 多两个商店的上架材料和 Firefox 的 API 差异说明，实际用户却全在 Chrome。
 
 本地开发见下面的 [从源码构建](#从源码构建)。
 
-## Firefox 限制
-
-Firefox WebExtensions 不暴露 `idle` API，所以「系统锁屏立即锁」
-这个特性在 Firefox 上不可用。其他都跟 Chrome 版一致：
-
-- 自动锁定时器（5 / 15 / 30 / 60 分钟或从不）照常工作。
-- 其他自动锁触发（手动锁、空闲 alarm、5 次错误 wipe）都正常。
-- 跨设备同步通过用户的 Mozilla 账号经 Firefox Sync 实现，不是
-  Chrome Sync 或 Microsoft Account。
-- AMO 上架表单答案见
-  [`store-assets/listing/privacy-practices-firefox-zh.txt`](store-assets/listing/privacy-practices-firefox-zh.txt)
-  （或英文版 `-en.txt`）。
-
 ## 权限说明
 
-小验子只申请 Chrome / Edge 必须的最小权限：
+小验子只申请 Chrome 必需的最小权限：
 
 | 权限          | 用途                                                              |
 | ------------ | ----------------------------------------------------------------- |
@@ -73,7 +61,7 @@ Firefox WebExtensions 不暴露 `idle` API，所以「系统锁屏立即锁」
 
 小验子的承诺：**所有数据都留在你的设备上。**
 
-- 所有账号数据存在你设备的 `chrome.storage.sync` 里。跨设备同步由你的浏览器（Chrome Sync 或 Microsoft Account）处理，我们运营的任何服务器都不接触。
+- 所有账号数据存在你设备的 `chrome.storage.sync` 里。跨设备同步由你的浏览器（Chrome Sync）处理，我们运营的任何服务器都不接触。
 - 扩展从不向我们运营的任何服务器发 HTTP 请求。唯一的 `fetch()` 调用是处理扫描按钮触发的 `chrome.tabs.captureVisibleTab` 返回的 `data:` URI。
 - 无埋点、无追踪、无广告、无崩溃报告。
 
@@ -81,7 +69,7 @@ Firefox WebExtensions 不暴露 `idle` API，所以「系统锁屏立即锁」
 
 ## 从源码构建
 
-环境要求：**Node 20+**（在 Node 24 上测过）。
+环境要求：**Node 22+**（在 Node 24 上测过）。单测直接跑 `.ts`，靠的是 Node 的类型剥离；Node 20 跑 `npm test` 会报 `ERR_UNKNOWN_FILE_EXTENSION`。
 
 ```bash
 git clone https://github.com/takmartian/xAuthZee.git
@@ -97,16 +85,8 @@ dev server 把扩展构建到 `.output/chrome-mv3/`，到 `chrome://extensions/`
 | 命令                  | 作用                                                          |
 | -------------------- | ------------------------------------------------------------- |
 | `npm run dev`        | WXT dev server（Chrome 目标）                                  |
-| `npm run dev:edge`   | WXT dev server（Edge 目标）                                    |
-| `npm run dev:firefox`| WXT dev server（Firefox 目标）                                  |
 | `npm run build`      | 生产构建到 `.output/chrome-mv3/`                                |
-| `npm run build:edge` | 生产构建到 `.output/edge-mv3/`                                  |
-| `npm run build:firefox` | 生产构建到 `.output/firefox-mv3/`                           |
-| `npm run build:all`  | 依次构建三个目标                                              |
 | `npm run zip`        | 构建并打包成 Chrome Web Store 上传 zip                          |
-| `npm run zip:edge`   | 构建并打包成 Edge Add-ons 上传 zip                             |
-| `npm run zip:firefox`| 构建并打包成 Firefox Add-ons 上传 zip（同时产出 AMO 必需的 sources.zip） |
-| `npm run zip:all`    | 依次给三个商店打包                                            |
 | `npm run compile`    | 仅做 TypeScript 类型检查（`tsc --noEmit`）                     |
 | `npm test`           | 单元测试（`node --test tests/*.test.ts`）                       |
 | `npm run icons`      | 重新生成 `public/icon/` 下的四个扩展图标                       |
@@ -137,13 +117,14 @@ dev server 把扩展构建到 `.output/chrome-mv3/`，到 `chrome://extensions/`
 │   ├── qr/decode.ts           # jsQR 包装
 │   ├── totp.ts                # TOTP 验证码生成
 │   ├── detect.ts              # OTP 输入框检测（含六宫格）
-│   └── domain.ts              # 域名匹配（exact / registrable / shared）
+│   ├── domain.ts              # 域名匹配（exact / registrable / shared）
+│   └── order.ts               # 拖拽排序：置顶项占位不动，只重排非置顶项
 ├── tests/                     # node --test 单元测试
 ├── scripts/                   # 构建辅助
 │   ├── gen-icons.mjs          # 生成 16/32/48/128 PNG 图标
 │   └── gen-store-assets.mjs   # 生成 promo + screenshot 占位
 ├── styles/                    # 共享 CSS（主题 token）
-├── store-assets/              # Chrome Web Store / Edge Add-ons 上架材料
+├── store-assets/              # Chrome Web Store 上架材料
 │   ├── privacy.md             # 隐私声明
 │   ├── listing/               # 描述 + 隐私实务规范（纯文本）
 │   ├── promo/                 # 440x280、920x680、1400x560 promo tiles

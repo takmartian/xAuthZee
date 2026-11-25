@@ -1,33 +1,30 @@
 # Store Assets — 上架材料清单
 
-Chrome Web Store 和 Edge Add-ons 共用大部分材料，但提交步骤有差别。
-所有材料都在 `store-assets/` 下，重新生成命令：
+只上 Chrome Web Store。所有材料都在 `store-assets/` 下，重新生成命令：
 
 ```bash
 npm run store-assets      # 重新生成 promo + screenshots
-npm run build              # 编译扩展
-npm run zip                # 打包 Chrome zip
-npm run zip:edge           # 打包 Edge zip
+npm run build             # 编译扩展
+npm run zip               # 打包 Chrome zip
 ```
 
 ## 文件清单
 
 | 文件 / 目录                     | 用途                                  |
 | ------------------------------- | ------------------------------------- |
-| `privacy.md`                    | 隐私声明（两家商店都要求引用 URL）     |
+| `privacy.md`                    | 隐私声明（商店要求引用 URL）           |
 | `listing/description-en.txt`    | 英文 store listing（纯文本）           |
 | `listing/description-zh.txt`    | 中文 store listing（纯文本）           |
 | `listing/privacy-practices-en.txt` | Chrome 隐私权实务规范 8 字段答案（EN） |
 | `listing/privacy-practices-zh.txt` | Chrome 隐私权实务规范 8 字段答案（ZH） |
-| `promo/small-440x280.png`       | 小型 promo tile（Chrome 必填）         |
-| `promo/large-920x680.png`       | 大型 promo tile（Chrome 必填）         |
-| `promo/marquee-1400x560.png`    | 横幅 promo tile（Chrome 必填）         |
+| `promo/small-440x280.png`       | 小型 promo tile（必填）                |
+| `promo/large-920x680.png`       | 大型 promo tile（必填）                |
+| `promo/marquee-1400x560.png`    | 横幅 promo tile（必填）                |
 | `screenshots/01-popup.png`      | 主 popup 截屏                          |
 | `screenshots/02-otp-overlay.png` | OTP 浮层触发截屏                        |
 | `screenshots/03-options.png`    | 设置页截屏                             |
 | `screenshots/04-locked.png`     | 锁定态截屏                              |
 | `.output/xauthzee-<v>-chrome.zip` | Chrome 商店上传包                       |
-| `.output/xauthzee-<v>-edge.zip`  | Edge 商店上传包                         |
 
 ## Chrome Web Store 提交清单
 
@@ -64,31 +61,10 @@ npm run zip:edge           # 打包 Edge zip
    - Regions: All
 7. Submit for review —— 首次通常 1-3 天
 
-## Edge Add-ons 提交清单
-
-去 https://partner.microsoft.com/dashboard/microsoftedge/Extension/new
-
-1. **Package** → 上传 `xauthzee-<v>-edge.zip`
-2. **Extension overview**：
-   - Name: `XAuthZee`
-   - Short description: ≤ 200 字符
-   - Long description: 复用 `listing/description-en.md` 的"长描述"或中文版
-3. **Listing details**：
-   - Category: `Productivity`
-   - Privacy policy URL: 同上
-4. **Store listing assets**：
-   - Logo: 已有 16/32/48/128 PNG
-   - Screenshots: 上传 `screenshots/*.png`（Edge 不强制要 promo tile，但建议加）
-5. **Properties**：
-   - Languages: English + Simplified Chinese
-   - Website / Support URL: GitHub repo（如果开了）
-6. **Privacy** → "Does this extension collect or transmit any data?" → **No**
-7. Submit → 通常 1-7 天
-
 ## 注意事项
 
 1. **Icon 复用**：4 个尺寸的 PNG（16/32/48/128）放在 `public/icon/`，WXT 自动塞进 manifest
-2. **版本号同步**：`package.json` 改 version 后跑 `npm run zip` 才会出新 zip
+2. **版本号同步**：`package.json` 改 version 后跑 `npm run zip` 才会出新 zip；同一版本号不能重复提交
 3. **大小写敏感**：商店表单里 Name / Description 拼写与 `_locales` 一致，否则 manifest 校验报错
 4. **隐私 URL 必须可公网访问**：最方便是 GitHub Pages，把 `privacy.md` 放仓库根 + 开 Pages
 5. **screenshots 是占位**：手画的简易版，上架前建议用 Playwright 截真实 UI 替换

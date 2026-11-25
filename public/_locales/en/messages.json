@@ -73,6 +73,10 @@
   "rowClickToFill": {
     "message": "Click to copy"
   },
+  "rowDragHandle": {
+    "message": "Drag to reorder",
+    "description": "Tooltip / aria-label for the grip handle on a popup row"
+  },
   "rowCopied": {
     "message": "Copied"
   },
@@ -93,15 +97,49 @@
   "rowDeleteConfirmBody": {
     "message": "This cannot be undone. The deletion will sync to your other devices."
   },
-  "rowReorderUp": {
-    "message": "Move up"
-  },
-  "rowReorderDown": {
-    "message": "Move down"
-  },
   "rowMore": {
     "message": "More",
     "description": "Open the row menu for binding and other actions"
+  },
+  "rowShowQr": {
+    "message": "QR code",
+    "description": "Menu entry that opens a QR code for migrating this account to another authenticator"
+  },
+  "rowMenuTransfer": {
+    "message": "Transfer",
+    "description": "Right-hand label of the QR code menu entry"
+  },
+  "qrTitle": {
+    "message": "Add to another authenticator",
+    "description": "Title of the QR code dialog"
+  },
+  "qrSecretLabel": {
+    "message": "Secret",
+    "description": "Label of the secret shown in the QR code dialog"
+  },
+  "qrCopySecret": {
+    "message": "Copy secret",
+    "description": "Button that copies the Base32 secret to the clipboard"
+  },
+  "qrCopyLink": {
+    "message": "Copy link",
+    "description": "Button that copies the otpauth:// link to the clipboard"
+  },
+  "qrCopiedSecret": {
+    "message": "Secret copied",
+    "description": "Toast shown after the secret was copied"
+  },
+  "qrCopiedLink": {
+    "message": "Link copied",
+    "description": "Toast shown after the otpauth:// link was copied"
+  },
+  "qrClose": {
+    "message": "Close",
+    "description": "Button that closes the QR code dialog"
+  },
+  "qrFailed": {
+    "message": "Could not generate a QR code for this account.",
+    "description": "Shown in the QR code dialog when the account has no usable secret"
   },
   "rowMenuBindExact": {
     "message": "Exact",
